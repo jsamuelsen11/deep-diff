@@ -21,9 +21,13 @@ from deep_diff.core import (
     models,
     structure,
 )
+from deep_diff.core import (
+    comparator as comparator_module,
+)
 
 EXPECTED_NAMES = {
     "ChangeType",
+    "Comparator",
     "DiffDepth",
     "DiffResult",
     "DiffStats",
@@ -75,6 +79,9 @@ class TestReExportIdentity:
 
     def test_structure_comparator_is_identical(self) -> None:
         assert core.StructureComparator is structure.StructureComparator
+
+    def test_comparator_is_identical(self) -> None:
+        assert core.Comparator is comparator_module.Comparator
 
 
 class TestReExportTypes:
