@@ -16,6 +16,7 @@ from deep_diff.core.models import (
     TextChange,
 )
 from deep_diff.core.structure import StructureComparator
+from deep_diff.core.text import TextComparator
 
 __all__ = [
     "ChangeType",
@@ -31,4 +32,5 @@ __all__ = [
     "OutputMode",
     "StructureComparator",
     "TextChange",
+    "TextComparator",
 ]

@@ -48,8 +48,10 @@ class TestComparatorAutoDetection:
         f2 = tmp_path / "b.txt"
         f1.write_text("hello\n")
         f2.write_text("world\n")
-        with pytest.raises(NotImplementedError, match="text"):
-            Comparator().compare(f1, f2)
+        result = Comparator().compare(f1, f2)
+        assert result.depth == DiffDepth.text
+        assert len(result.comparisons) == 1
+        assert result.comparisons[0].status == FileStatus.modified
 
     def test_mixed_file_and_dir_raises(self, sample_dirs: tuple[Path, Path]) -> None:
         left, right = sample_dirs
@@ -169,7 +171,8 @@ class TestComparatorNotImplemented:
         with pytest.raises(NotImplementedError, match="content"):
             Comparator(DiffDepth.content).compare(left, right)
 
-    def test_text_depth_on_dirs_raises(self, sample_dirs: tuple[Path, Path]) -> None:
+    def test_text_depth_on_dirs_succeeds(self, sample_dirs: tuple[Path, Path]) -> None:
         left, right = sample_dirs
-        with pytest.raises(NotImplementedError, match="text"):
-            Comparator(DiffDepth.text).compare(left, right)
+        result = Comparator(DiffDepth.text).compare(left, right)
+        assert result.depth == DiffDepth.text
+        assert len(result.comparisons) > 0
