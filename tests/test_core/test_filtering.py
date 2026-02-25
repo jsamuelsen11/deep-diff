@@ -201,10 +201,30 @@ class TestFileFilterIncludePatterns:
         (root / "app.py").write_text("code\n")
         (root / "readme.txt").write_text("readme\n")
         (root / "data.csv").write_text("data\n")
+        (root / "sub").mkdir()
+        (root / "sub" / "lib.py").write_text("lib\n")
 
         config = FilterConfig(respect_gitignore=False, include_patterns=("*.py",))
         result = FileFilter(config).scan(root)
-        assert result == ("app.py",)
+        # Both root-level and nested .py files should be included
+        assert "app.py" in result
+        assert "sub/lib.py" in result
+        assert "readme.txt" not in result
+        assert "data.csv" not in result
+
+    def test_include_pattern_on_nested_paths(self, tmp_path: Path) -> None:
+        root = tmp_path / "root"
+        root.mkdir()
+        (root / "app.py").write_text("code\n")
+        (root / "other.txt").write_text("text\n")
+        (root / "sub").mkdir()
+        (root / "sub" / "app.py").write_text("sub code\n")
+        (root / "sub" / "notes.txt").write_text("notes\n")
+
+        # Only include .py files inside sub/
+        config = FilterConfig(respect_gitignore=False, include_patterns=("sub/*.py",))
+        result = FileFilter(config).scan(root)
+        assert result == ("sub/app.py",)
 
     def test_include_multiple_patterns(self, tmp_path: Path) -> None:
         root = tmp_path / "root"
@@ -254,6 +274,23 @@ class TestFileFilterExcludePatterns:
         config = FilterConfig(respect_gitignore=False, exclude_patterns=("*.log", "*.tmp"))
         result = FileFilter(config).scan(root)
         assert result == ("app.py",)
+
+    def test_exclude_pattern_on_nested_paths(self, tmp_path: Path) -> None:
+        root = tmp_path / "root"
+        root.mkdir()
+        (root / "app.py").write_text("code\n")
+        (root / "main.py").write_text("main\n")
+        (root / "sub").mkdir()
+        (root / "sub" / "app.py").write_text("sub code\n")
+        (root / "sub" / "helper.py").write_text("helper\n")
+
+        # Exclude only .py files inside sub/, keep root-level ones
+        config = FilterConfig(respect_gitignore=False, exclude_patterns=("sub/*.py",))
+        result = FileFilter(config).scan(root)
+        assert "app.py" in result
+        assert "main.py" in result
+        assert "sub/app.py" not in result
+        assert "sub/helper.py" not in result
 
     def test_exclude_overrides_include(self, tmp_path: Path) -> None:
         root = tmp_path / "root"
