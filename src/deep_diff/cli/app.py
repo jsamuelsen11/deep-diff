@@ -154,7 +154,11 @@ def main(
             exclude=exclude,
         )
 
-        comparator = Comparator(depth=parsed_depth, filter_config=filter_config)
+        comparator = Comparator(
+            depth=parsed_depth,
+            filter_config=filter_config,
+            context_lines=context_lines,
+        )
         result = comparator.compare(Path(left), Path(right))
 
         renderer = _get_renderer(output_mode)

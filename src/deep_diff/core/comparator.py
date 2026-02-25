@@ -31,15 +31,18 @@ class Comparator:
         depth: DiffDepth | None = None,
         *,
         filter_config: FilterConfig | None = None,
+        context_lines: int = 3,
     ) -> None:
         """Initialize the comparator.
 
         Args:
             depth: Comparison depth level. Auto-detected if None.
             filter_config: Filtering rules. Defaults to FilterConfig() if None.
+            context_lines: Number of context lines for text diffs.
         """
         self._depth = depth
         self._filter_config = filter_config or FilterConfig()
+        self._context_lines = context_lines
 
     def compare(self, left: Path, right: Path) -> DiffResult:
         """Run the comparison pipeline.
@@ -101,8 +104,46 @@ class Comparator:
         if depth == DiffDepth.structure:
             return StructureComparator(self._filter_config).compare(left, right)
 
+        if depth == DiffDepth.text:
+            return self._run_text_pipeline(left, right)
+
         msg = f"Depth '{depth}' is not yet implemented"
         raise NotImplementedError(msg)
+
+    def _run_text_pipeline(
+        self,
+        left: Path,
+        right: Path,
+    ) -> tuple[FileComparison, ...]:
+        """Run structure pass, then enrich with text diffs.
+
+        For file pairs, skips the structure pass and diffs directly.
+        """
+        from deep_diff.core.text import TextComparator
+
+        text_comp = TextComparator(context_lines=self._context_lines)
+
+        if left.is_file() and right.is_file():
+            return (text_comp.compare(left, right),)
+
+        structure_comparisons = StructureComparator(
+            self._filter_config,
+        ).compare(left, right)
+
+        enriched: list[FileComparison] = []
+        for fc in structure_comparisons:
+            if fc.left_path and fc.right_path:
+                enriched.append(
+                    text_comp.compare(
+                        fc.left_path,
+                        fc.right_path,
+                        relative_path=fc.relative_path,
+                    )
+                )
+            else:
+                enriched.append(fc)
+
+        return tuple(enriched)
 
     @staticmethod
     def _validate_paths_exist(left: Path, right: Path) -> None:

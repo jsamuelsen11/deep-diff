@@ -69,6 +69,30 @@ def sample_dirs(tmp_path: Path) -> tuple[Path, Path]:
 
 
 @pytest.fixture
+def sample_text_files(tmp_path: Path) -> tuple[Path, Path]:
+    """Create two text files with a known single-line difference.
+
+    Left:  line 1 / line 2 / line 3
+    Right: line 1 / changed line 2 / line 3
+    """
+    left = tmp_path / "left.txt"
+    right = tmp_path / "right.txt"
+    left.write_text("line 1\nline 2\nline 3\n")
+    right.write_text("line 1\nchanged line 2\nline 3\n")
+    return left, right
+
+
+@pytest.fixture
+def binary_files(tmp_path: Path) -> tuple[Path, Path]:
+    """Create two different binary files containing null bytes."""
+    left = tmp_path / "left.bin"
+    right = tmp_path / "right.bin"
+    left.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+    right.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00")
+    return left, right
+
+
+@pytest.fixture
 def sample_gitignore(tmp_path: Path) -> Path:
     """Create a directory with a .gitignore file."""
     root = tmp_path / "repo"

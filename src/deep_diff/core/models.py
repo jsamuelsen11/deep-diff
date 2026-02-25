@@ -78,6 +78,7 @@ class FileComparison:
     hunks: tuple[Hunk, ...] = ()
     content_hash_left: str | None = None
     content_hash_right: str | None = None
+    similarity: float | None = None
 
 
 @dataclass(frozen=True)
