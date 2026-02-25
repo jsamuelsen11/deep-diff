@@ -29,6 +29,22 @@ class TestTextComparatorInit:
         comp = TextComparator(context_lines=0)
         assert comp._context_lines == 0
 
+    def test_default_encoding(self) -> None:
+        comp = TextComparator()
+        assert comp._encoding == "utf-8"
+
+    def test_custom_encoding(self) -> None:
+        comp = TextComparator(encoding="latin-1")
+        assert comp._encoding == "latin-1"
+
+    def test_default_errors(self) -> None:
+        comp = TextComparator()
+        assert comp._errors == "replace"
+
+    def test_custom_errors(self) -> None:
+        comp = TextComparator(errors="strict")
+        assert comp._errors == "strict"
+
 
 class TestTextComparatorIdentical:
     """Identical files produce no hunks and similarity 1.0."""
@@ -445,6 +461,38 @@ class TestTextComparatorNoTrailingNewline:
 
         result = TextComparator().compare(left, right)
         assert result.status == FileStatus.identical
+
+
+class TestTextComparatorEncoding:
+    """Verify configurable encoding and error handling."""
+
+    def test_latin1_encoding(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_bytes("caf\xe9\n".encode("latin-1"))
+        right.write_bytes("caf\xe9 latte\n".encode("latin-1"))
+
+        result = TextComparator(encoding="latin-1").compare(left, right)
+        assert result.status == FileStatus.modified
+        assert len(result.hunks) >= 1
+
+    def test_strict_errors_raises_on_invalid_bytes(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_bytes(b"valid utf-8\n")
+        right.write_bytes(b"invalid \xff\xfe bytes\n")
+
+        with pytest.raises(UnicodeDecodeError):
+            TextComparator(errors="strict").compare(left, right)
+
+    def test_replace_errors_handles_invalid_bytes(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_bytes(b"valid utf-8\n")
+        right.write_bytes(b"invalid \xff\xfe bytes\n")
+
+        result = TextComparator(errors="replace").compare(left, right)
+        assert result.status == FileStatus.modified
 
 
 class TestTextComparatorResults:

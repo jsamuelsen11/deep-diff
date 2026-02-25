@@ -28,14 +28,27 @@ class TextComparator:
     with configurable context lines.
     """
 
-    def __init__(self, *, context_lines: int = 3) -> None:
+    def __init__(
+        self,
+        *,
+        context_lines: int = 3,
+        encoding: str = "utf-8",
+        errors: str = "replace",
+    ) -> None:
         """Initialize with diff context configuration.
 
         Args:
             context_lines: Number of unchanged context lines around each
                 change in the produced hunks. Defaults to 3.
+            encoding: Text encoding used to decode file bytes.
+                Defaults to ``"utf-8"``.
+            errors: Error handling strategy passed to :meth:`bytes.decode`.
+                Defaults to ``"replace"``.  Use ``"strict"`` to raise on
+                invalid byte sequences.
         """
         self._context_lines = context_lines
+        self._encoding = encoding
+        self._errors = errors
 
     def compare(
         self,
@@ -119,8 +132,8 @@ class TextComparator:
         right_path: Path,
     ) -> FileComparison:
         """Compare two text files using difflib.SequenceMatcher."""
-        left_text = left_bytes.decode("utf-8", errors="replace")
-        right_text = right_bytes.decode("utf-8", errors="replace")
+        left_text = left_bytes.decode(self._encoding, errors=self._errors)
+        right_text = right_bytes.decode(self._encoding, errors=self._errors)
 
         left_lines = left_text.splitlines(keepends=True)
         right_lines = right_text.splitlines(keepends=True)

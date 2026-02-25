@@ -171,8 +171,107 @@ class TestComparatorNotImplemented:
         with pytest.raises(NotImplementedError, match="content"):
             Comparator(DiffDepth.content).compare(left, right)
 
-    def test_text_depth_on_dirs_succeeds(self, sample_dirs: tuple[Path, Path]) -> None:
-        left, right = sample_dirs
+
+class TestComparatorTextDepthOnDirs:
+    """Verify structure -> text pipeline for directory comparisons."""
+
+    def test_text_depth_on_dirs_returns_result(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "a.txt").write_text("hello\n")
+        (right / "a.txt").write_text("hello\n")
+
         result = Comparator(DiffDepth.text).compare(left, right)
         assert result.depth == DiffDepth.text
-        assert len(result.comparisons) > 0
+        assert len(result.comparisons) == 1
+
+    def test_identical_files_enriched_with_similarity(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "same.txt").write_text("same content\nline 2\n")
+        (right / "same.txt").write_text("same content\nline 2\n")
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        same = by_path["same.txt"]
+        assert same.status == FileStatus.identical
+        assert same.similarity == 1.0
+        assert same.hunks == ()
+
+    def test_modified_files_get_hunks(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "changed.txt").write_text("original\n")
+        (right / "changed.txt").write_text("modified\n")
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        changed = by_path["changed.txt"]
+        assert changed.status == FileStatus.modified
+        assert changed.similarity is not None
+        assert changed.similarity < 1.0
+        assert len(changed.hunks) >= 1
+
+    def test_added_files_pass_through(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (right / "new.txt").write_text("added\n")
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        added = by_path["new.txt"]
+        assert added.status == FileStatus.added
+        assert added.left_path is None
+        assert added.hunks == ()
+        assert added.similarity is None
+
+    def test_removed_files_pass_through(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "old.txt").write_text("removed\n")
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        removed = by_path["old.txt"]
+        assert removed.status == FileStatus.removed
+        assert removed.right_path is None
+        assert removed.hunks == ()
+        assert removed.similarity is None
+
+    def test_mixed_statuses_all_correct(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "same.txt").write_text("identical\n")
+        (right / "same.txt").write_text("identical\n")
+        (left / "changed.txt").write_text("before\n")
+        (right / "changed.txt").write_text("after\n")
+        (left / "gone.txt").write_text("removed\n")
+        (right / "new.txt").write_text("added\n")
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        assert by_path["same.txt"].status == FileStatus.identical
+        assert by_path["changed.txt"].status == FileStatus.modified
+        assert by_path["gone.txt"].status == FileStatus.removed
+        assert by_path["new.txt"].status == FileStatus.added
+        assert result.stats.identical == 1
+        assert result.stats.modified == 1
+        assert result.stats.removed == 1
+        assert result.stats.added == 1

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from deep_diff.core.filtering import FilterConfig
-from deep_diff.core.models import DiffDepth, DiffResult, DiffStats, FileStatus
+from deep_diff.core.models import DiffDepth, DiffResult, DiffStats
 from deep_diff.core.structure import StructureComparator
 
 if TYPE_CHECKING:
@@ -132,7 +132,7 @@ class Comparator:
 
         enriched: list[FileComparison] = []
         for fc in structure_comparisons:
-            if fc.status == FileStatus.identical and fc.left_path and fc.right_path:
+            if fc.left_path and fc.right_path:
                 enriched.append(
                     text_comp.compare(
                         fc.left_path,
