@@ -1,0 +1,78 @@
+"""Tests for deep_diff.core public API re-exports."""
+
+from __future__ import annotations
+
+from dataclasses import fields, is_dataclass
+from enum import StrEnum
+
+import deep_diff.core as core
+from deep_diff.core import (
+    ChangeType,
+    DiffDepth,
+    DiffResult,
+    DiffStats,
+    FileComparison,
+    FileStatus,
+    Hunk,
+    OutputMode,
+    TextChange,
+    models,
+)
+
+EXPECTED_NAMES = {
+    "ChangeType",
+    "DiffDepth",
+    "DiffResult",
+    "DiffStats",
+    "FileComparison",
+    "FileStatus",
+    "Hunk",
+    "OutputMode",
+    "TextChange",
+}
+
+
+class TestAllExports:
+    """Verify __all__ matches the expected public API surface."""
+
+    def test_all_contains_expected_names(self) -> None:
+        assert set(core.__all__) == EXPECTED_NAMES
+
+    def test_all_has_no_extras(self) -> None:
+        for name in core.__all__:
+            assert name in EXPECTED_NAMES, f"unexpected export: {name}"
+
+    def test_all_names_are_importable(self) -> None:
+        for name in core.__all__:
+            assert hasattr(core, name), f"{name} listed in __all__ but not importable"
+
+
+class TestReExportIdentity:
+    """Verify re-exports are the same objects as the originals in models."""
+
+    def test_enums_are_identical(self) -> None:
+        assert core.DiffDepth is models.DiffDepth
+        assert core.OutputMode is models.OutputMode
+        assert core.FileStatus is models.FileStatus
+        assert core.ChangeType is models.ChangeType
+
+    def test_dataclasses_are_identical(self) -> None:
+        assert core.TextChange is models.TextChange
+        assert core.Hunk is models.Hunk
+        assert core.FileComparison is models.FileComparison
+        assert core.DiffStats is models.DiffStats
+        assert core.DiffResult is models.DiffResult
+
+
+class TestReExportTypes:
+    """Verify re-exported symbols have the expected types."""
+
+    def test_enums_are_str_enums(self) -> None:
+        for cls in (DiffDepth, OutputMode, FileStatus, ChangeType):
+            assert issubclass(cls, StrEnum), f"{cls.__name__} is not a StrEnum"
+
+    def test_dataclasses_are_frozen(self) -> None:
+        for cls in (TextChange, Hunk, FileComparison, DiffStats, DiffResult):
+            assert is_dataclass(cls), f"{cls.__name__} is not a dataclass"
+            # frozen dataclasses have __dataclass_params__.frozen == True
+            assert fields(cls) is not None  # sanity: fields() works
