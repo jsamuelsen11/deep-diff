@@ -1,0 +1,25 @@
+pre-commit:
+  parallel: true
+  commands:
+    ruff-format:
+      glob: "*.py"
+      run: uv run ruff format --check {staged_files}
+
+    ruff-lint:
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+
+    mypy:
+      glob: "*.py"
+      run: uv run mypy src/
+
+pre-push:
+  parallel: true
+  commands:
+    full-test:
+      # Exit code 5 = no tests collected (ok for scaffold)
+      run: uv run pytest --tb=short -q; status=$?; [ $status -eq 5 ] && exit 0 || exit $status
+
+    mypy-strict:
+      run: uv run mypy src/ --strict
