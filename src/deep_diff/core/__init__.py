@@ -14,6 +14,7 @@ from deep_diff.core.models import (
     OutputMode,
     TextChange,
 )
+from deep_diff.core.structure import StructureComparator
 
 __all__ = [
     "ChangeType",
@@ -26,5 +27,6 @@ __all__ = [
     "FilterConfig",
     "Hunk",
     "OutputMode",
+    "StructureComparator",
     "TextChange",
 ]
