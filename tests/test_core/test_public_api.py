@@ -13,9 +13,11 @@ from deep_diff.core import (
     DiffStats,
     FileComparison,
     FileStatus,
+    FilterConfig,
     Hunk,
     OutputMode,
     TextChange,
+    filtering,
     models,
 )
 
@@ -25,7 +27,9 @@ EXPECTED_NAMES = {
     "DiffResult",
     "DiffStats",
     "FileComparison",
+    "FileFilter",
     "FileStatus",
+    "FilterConfig",
     "Hunk",
     "OutputMode",
     "TextChange",
@@ -63,6 +67,10 @@ class TestReExportIdentity:
         assert core.DiffStats is models.DiffStats
         assert core.DiffResult is models.DiffResult
 
+    def test_filtering_symbols_are_identical(self) -> None:
+        assert core.FilterConfig is filtering.FilterConfig
+        assert core.FileFilter is filtering.FileFilter
+
 
 class TestReExportTypes:
     """Verify re-exported symbols have the expected types."""
@@ -72,7 +80,7 @@ class TestReExportTypes:
             assert issubclass(cls, StrEnum), f"{cls.__name__} is not a StrEnum"
 
     def test_dataclasses_are_frozen(self) -> None:
-        for cls in (TextChange, Hunk, FileComparison, DiffStats, DiffResult):
+        for cls in (TextChange, Hunk, FileComparison, DiffStats, DiffResult, FilterConfig):
             assert is_dataclass(cls), f"{cls.__name__} is not a dataclass"
             # frozen dataclasses have __dataclass_params__.frozen == True
             assert fields(cls) is not None  # sanity: fields() works

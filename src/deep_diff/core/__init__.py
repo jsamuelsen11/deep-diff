@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from deep_diff.core.filtering import FileFilter, FilterConfig
 from deep_diff.core.models import (
     ChangeType,
     DiffDepth,
@@ -20,7 +21,9 @@ __all__ = [
     "DiffResult",
     "DiffStats",
     "FileComparison",
+    "FileFilter",
     "FileStatus",
+    "FilterConfig",
     "Hunk",
     "OutputMode",
     "TextChange",
