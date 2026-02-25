@@ -19,6 +19,7 @@ from deep_diff.core import (
     TextChange,
     filtering,
     models,
+    structure,
 )
 
 EXPECTED_NAMES = {
@@ -32,6 +33,7 @@ EXPECTED_NAMES = {
     "FilterConfig",
     "Hunk",
     "OutputMode",
+    "StructureComparator",
     "TextChange",
 }
 
@@ -70,6 +72,9 @@ class TestReExportIdentity:
     def test_filtering_symbols_are_identical(self) -> None:
         assert core.FilterConfig is filtering.FilterConfig
         assert core.FileFilter is filtering.FileFilter
+
+    def test_structure_comparator_is_identical(self) -> None:
+        assert core.StructureComparator is structure.StructureComparator
 
 
 class TestReExportTypes:
