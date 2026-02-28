@@ -47,9 +47,16 @@ class ContentComparator:
 
         Returns:
             A FileComparison with status, content hashes, and similarity.
+
+        Raises:
+            FileNotFoundError: If left or right does not exist.
+            IsADirectoryError: If left or right is a directory.
         """
         if not relative_path:
             relative_path = left.name
+
+        self._validate_file(left, "Left")
+        self._validate_file(right, "Right")
 
         left_hash = self._hash_file(left)
         right_hash = self._hash_file(right)
@@ -70,6 +77,25 @@ class ContentComparator:
             content_hash_right=right_hash,
             similarity=similarity,
         )
+
+    @staticmethod
+    def _validate_file(path: Path, label: str) -> None:
+        """Check that a path exists and is a regular file.
+
+        Args:
+            path: Path to validate.
+            label: Human-readable label for error messages (e.g. "Left").
+
+        Raises:
+            FileNotFoundError: If path does not exist.
+            IsADirectoryError: If path is a directory.
+        """
+        if not path.exists():
+            msg = f"{label} path does not exist: {path}"
+            raise FileNotFoundError(msg)
+        if path.is_dir():
+            msg = f"{label} path is a directory, expected a file: {path}"
+            raise IsADirectoryError(msg)
 
     def _hash_file(self, path: Path) -> str:
         """Compute the hex digest of a file using streaming reads.

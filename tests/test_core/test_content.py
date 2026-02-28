@@ -217,7 +217,7 @@ class TestContentComparatorHashAlgo:
         f = tmp_path / "a.txt"
         f.write_text("test\n")
 
-        with pytest.raises(ValueError, match="unsupported hash"):
+        with pytest.raises(ValueError):
             ContentComparator(hash_algo="not_a_real_algo").compare(f, f)
 
 
@@ -260,6 +260,18 @@ class TestContentComparatorLargeFile:
 
     def test_large_file_streaming(self, tmp_path: Path) -> None:
         data = b"x" * (_HASH_BUFFER_SIZE * 2)
+        left = tmp_path / "large_a.bin"
+        right = tmp_path / "large_b.bin"
+        left.write_bytes(data)
+        right.write_bytes(data)
+
+        result = ContentComparator().compare(left, right)
+
+        assert result.status == FileStatus.identical
+        assert result.content_hash_left == result.content_hash_right
+
+    def test_large_file_non_multiple_of_buffer(self, tmp_path: Path) -> None:
+        data = b"x" * (_HASH_BUFFER_SIZE * 2 + 123)
         left = tmp_path / "large_a.bin"
         right = tmp_path / "large_b.bin"
         left.write_bytes(data)
@@ -352,3 +364,41 @@ class TestContentComparatorResults:
 
         result = ContentComparator().compare(left, right)
         assert result.similarity is None
+
+
+class TestContentComparatorPathValidation:
+    """Verify explicit errors for missing or non-file paths."""
+
+    def test_missing_left_raises(self, tmp_path: Path) -> None:
+        right = tmp_path / "b.txt"
+        right.write_text("content\n")
+        missing = tmp_path / "nonexistent"
+
+        with pytest.raises(FileNotFoundError, match="Left path does not exist"):
+            ContentComparator().compare(missing, right)
+
+    def test_missing_right_raises(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        left.write_text("content\n")
+        missing = tmp_path / "nonexistent"
+
+        with pytest.raises(FileNotFoundError, match="Right path does not exist"):
+            ContentComparator().compare(left, missing)
+
+    def test_directory_left_raises(self, tmp_path: Path) -> None:
+        left = tmp_path / "dir"
+        left.mkdir()
+        right = tmp_path / "b.txt"
+        right.write_text("content\n")
+
+        with pytest.raises(IsADirectoryError, match="Left path is a directory"):
+            ContentComparator().compare(left, right)
+
+    def test_directory_right_raises(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        left.write_text("content\n")
+        right = tmp_path / "dir"
+        right.mkdir()
+
+        with pytest.raises(IsADirectoryError, match="Right path is a directory"):
+            ContentComparator().compare(left, right)

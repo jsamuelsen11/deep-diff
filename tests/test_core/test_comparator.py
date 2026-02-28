@@ -283,6 +283,20 @@ class TestComparatorContentDepthOnDirs:
 class TestComparatorContentDepthOnFiles:
     """Verify content pipeline on single file pairs."""
 
+    def test_hash_algo_forwarded_to_content_comparator(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_text("same\n")
+        right.write_text("same\n")
+
+        result = Comparator(DiffDepth.content, hash_algo="md5").compare(left, right)
+
+        fc = result.comparisons[0]
+        assert fc.status == FileStatus.identical
+        assert fc.content_hash_left is not None
+        # MD5 hex digest is 32 chars; SHA-256 would be 64
+        assert len(fc.content_hash_left) == 32
+
     def test_identical_files(self, tmp_path: Path) -> None:
         left = tmp_path / "a.txt"
         right = tmp_path / "b.txt"
