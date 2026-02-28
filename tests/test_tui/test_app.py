@@ -170,8 +170,13 @@ class TestTuiAppLaunch:
         app = DeepDiffApp(result, stat_only=True)
         async with app.run_test() as pilot:
             # Stats display should exist, tree should not
-            assert len(app.query(_StatsDisplay)) == 1
+            stats_display = app.query_one(_StatsDisplay)
+            assert stats_display is not None
             assert len(app.query(DiffTree)) == 0
+            # Content should reflect key stats
+            stats_text = str(stats_display.render())
+            assert "files compared" in stats_text
+            assert "depth: structure" in stats_text
             await pilot.press("q")
 
 
@@ -341,7 +346,7 @@ class TestTuiDiffPanel:
             await pilot.press("n")
             await pilot.press("enter")
             panel = app.query_one(DiffPanel)
-            content = panel.last_content
+            content = panel.get_content_text()
             assert "Status:" in content
             # Structure depth should not show hashes
             assert "Hash" not in content
@@ -356,7 +361,7 @@ class TestTuiDiffPanel:
             await pilot.press("n")
             await pilot.press("enter")
             panel = app.query_one(DiffPanel)
-            content = panel.last_content
+            content = panel.get_content_text()
             assert "Left Hash:" in content
             assert "Right Hash:" in content
             await pilot.press("q")
@@ -369,7 +374,7 @@ class TestTuiDiffPanel:
             await pilot.press("n")
             await pilot.press("enter")
             panel = app.query_one(DiffPanel)
-            content = panel.last_content
+            content = panel.get_content_text()
             assert "@@" in content
             assert "-old line" in content
             assert "+new line" in content
@@ -381,7 +386,7 @@ class TestTuiDiffPanel:
         app = DeepDiffApp(result)
         async with app.run_test() as pilot:
             panel = app.query_one(DiffPanel)
-            content = panel.last_content
+            content = panel.get_content_text()
             # Panel should have no file-specific content before selection
             assert "Status:" not in content
             await pilot.press("q")
@@ -395,6 +400,198 @@ class TestTuiDiffPanel:
             await pilot.press("n")
             await pilot.press("enter")
             panel = app.query_one(DiffPanel)
-            first_content = panel.last_content
+            first_content = panel.get_content_text()
             assert "modified.txt" in first_content
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_text_panel_added_file_no_hunks(self) -> None:
+        comps = (
+            FileComparison(
+                relative_path="new.txt",
+                status=FileStatus.added,
+                left_path=None,
+                right_path=Path("/tmp/right/new.txt"),
+            ),
+        )
+        result = _make_result(comps, depth=DiffDepth.text)
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            await pilot.press("enter")
+            panel = app.query_one(DiffPanel)
+            content = panel.get_content_text()
+            assert "new.txt" in content
+            assert "added" in content
+            assert "@@" not in content
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_text_panel_removed_file_no_hunks(self) -> None:
+        comps = (
+            FileComparison(
+                relative_path="old.txt",
+                status=FileStatus.removed,
+                left_path=Path("/tmp/left/old.txt"),
+                right_path=None,
+            ),
+        )
+        result = _make_result(comps, depth=DiffDepth.text)
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            await pilot.press("enter")
+            panel = app.query_one(DiffPanel)
+            content = panel.get_content_text()
+            assert "old.txt" in content
+            assert "removed" in content
+            assert "@@" not in content
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_text_panel_binary_modified_no_hunks(self) -> None:
+        comps = (
+            FileComparison(
+                relative_path="image.png",
+                status=FileStatus.modified,
+                left_path=Path("/tmp/left/image.png"),
+                right_path=Path("/tmp/right/image.png"),
+                hunks=(),
+            ),
+        )
+        result = _make_result(comps, depth=DiffDepth.text)
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            await pilot.press("enter")
+            panel = app.query_one(DiffPanel)
+            content = panel.get_content_text()
+            assert "(binary, modified)" in content
+            assert "@@" not in content
+            await pilot.press("q")
+
+
+# ---------------------------------------------------------------------------
+# Category 5: Keybindings in stat-only mode
+# ---------------------------------------------------------------------------
+
+
+class TestTuiKeybindingsStatOnly:
+    """Ensure keybindings are safe no-ops when running in stat-only mode."""
+
+    @pytest.mark.asyncio
+    async def test_s_noop_in_stat_only(self) -> None:
+        result = _make_result(_mixed_comparisons())
+        app = DeepDiffApp(result, stat_only=True)
+        async with app.run_test() as pilot:
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("s")
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_n_noop_in_stat_only(self) -> None:
+        result = _make_result(_mixed_comparisons())
+        app = DeepDiffApp(result, stat_only=True)
+        async with app.run_test() as pilot:
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("n")
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_p_noop_in_stat_only(self) -> None:
+        result = _make_result(_mixed_comparisons())
+        app = DeepDiffApp(result, stat_only=True)
+        async with app.run_test() as pilot:
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("p")
+            assert len(app.query(_StatsDisplay)) == 1
+            assert len(app.query(DiffTree)) == 0
+            await pilot.press("q")
+
+
+# ---------------------------------------------------------------------------
+# Category 6: Tree navigation edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTuiTreeNavigationEdgeCases:
+    """Verify n/p are safe when no diffs or all files are identical."""
+
+    @pytest.mark.asyncio
+    async def test_n_noop_with_empty_comparisons(self) -> None:
+        result = _make_result(())
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            tree = app.query_one(DiffTree)
+            initial_cursor = tree.cursor_node
+            await pilot.press("n")
+            assert tree.cursor_node is initial_cursor
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_p_noop_with_empty_comparisons(self) -> None:
+        result = _make_result(())
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            tree = app.query_one(DiffTree)
+            initial_cursor = tree.cursor_node
+            await pilot.press("p")
+            assert tree.cursor_node is initial_cursor
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_n_noop_when_all_identical(self) -> None:
+        comps = (
+            FileComparison(
+                relative_path="a.txt",
+                status=FileStatus.identical,
+                left_path=Path("/tmp/left/a.txt"),
+                right_path=Path("/tmp/right/a.txt"),
+            ),
+            FileComparison(
+                relative_path="b.txt",
+                status=FileStatus.identical,
+                left_path=Path("/tmp/left/b.txt"),
+                right_path=Path("/tmp/right/b.txt"),
+            ),
+        )
+        result = _make_result(comps)
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            tree = app.query_one(DiffTree)
+            initial_cursor = tree.cursor_node
+            await pilot.press("n")
+            assert tree.cursor_node is initial_cursor
+            await pilot.press("q")
+
+    @pytest.mark.asyncio
+    async def test_p_noop_when_all_identical(self) -> None:
+        comps = (
+            FileComparison(
+                relative_path="a.txt",
+                status=FileStatus.identical,
+                left_path=Path("/tmp/left/a.txt"),
+                right_path=Path("/tmp/right/a.txt"),
+            ),
+            FileComparison(
+                relative_path="b.txt",
+                status=FileStatus.identical,
+                left_path=Path("/tmp/left/b.txt"),
+                right_path=Path("/tmp/right/b.txt"),
+            ),
+        )
+        result = _make_result(comps)
+        app = DeepDiffApp(result)
+        async with app.run_test() as pilot:
+            tree = app.query_one(DiffTree)
+            initial_cursor = tree.cursor_node
+            await pilot.press("p")
+            assert tree.cursor_node is initial_cursor
             await pilot.press("q")

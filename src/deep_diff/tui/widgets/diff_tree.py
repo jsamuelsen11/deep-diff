@@ -8,18 +8,12 @@ from typing import TYPE_CHECKING
 from textual.widgets import Tree
 
 from deep_diff.core.models import FileComparison, FileStatus
+from deep_diff.tui.widgets._styles import STATUS_STYLES
 
 if TYPE_CHECKING:
     from textual.widgets._tree import TreeNode
 
     from deep_diff.core.models import DiffResult
-
-_STATUS_STYLES: dict[FileStatus, tuple[str, str]] = {
-    FileStatus.added: ("green", "+"),
-    FileStatus.removed: ("red", "-"),
-    FileStatus.modified: ("yellow", "~"),
-    FileStatus.identical: ("dim", " "),
-}
 
 
 class DiffTree(Tree[FileComparison]):
@@ -51,7 +45,7 @@ class DiffTree(Tree[FileComparison]):
 
         for comp in self._result.comparisons:
             parts = PurePosixPath(comp.relative_path).parts
-            style, prefix = _STATUS_STYLES[comp.status]
+            style, prefix = STATUS_STYLES[comp.status]
             label = f"[{style}]{prefix} {parts[-1]}[/{style}]"
 
             if len(parts) == 1:

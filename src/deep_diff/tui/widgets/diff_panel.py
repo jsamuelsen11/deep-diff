@@ -8,23 +8,10 @@ from rich.text import Text
 from textual.widgets import Static
 
 from deep_diff.core.models import ChangeType, DiffDepth, FileStatus
+from deep_diff.tui.widgets._styles import STATUS_STYLES, truncate_hash
 
 if TYPE_CHECKING:
     from deep_diff.core.models import FileComparison
-
-_STATUS_STYLES: dict[FileStatus, tuple[str, str]] = {
-    FileStatus.added: ("green", "+"),
-    FileStatus.removed: ("red", "-"),
-    FileStatus.modified: ("yellow", "~"),
-    FileStatus.identical: ("dim", " "),
-}
-
-
-def _truncate_hash(hex_digest: str | None, *, length: int = 8) -> str:
-    """Truncate a hex digest for display, or return dash for None."""
-    if hex_digest is None:
-        return "-"
-    return hex_digest[:length]
 
 
 class DiffPanel(Static):
@@ -41,7 +28,11 @@ class DiffPanel(Static):
 
     def __init__(self) -> None:
         super().__init__()
-        self.last_content: str = ""
+        self._last_content: str = ""
+
+    def get_content_text(self) -> str:
+        """Return the plain text of the last rendered comparison."""
+        return self._last_content
 
     def update_comparison(self, comp: FileComparison, depth: DiffDepth) -> None:
         """Render the comparison detail based on depth."""
@@ -51,13 +42,13 @@ class DiffPanel(Static):
             rendered = self._render_content_depth(comp)
         else:
             rendered = self._render_text(comp)
-        self.last_content = rendered.plain
+        self._last_content = rendered.plain
         self.update(rendered)
 
     @staticmethod
     def _render_structure(comp: FileComparison) -> Text:
         """Render structure-depth detail: path and status only."""
-        style, prefix = _STATUS_STYLES[comp.status]
+        style, prefix = STATUS_STYLES[comp.status]
         text = Text()
         text.append(f"File: {comp.relative_path}\n", style="bold")
         text.append(f"Status: {prefix} {comp.status.value}\n", style=style)
@@ -74,12 +65,12 @@ class DiffPanel(Static):
     @staticmethod
     def _render_content_depth(comp: FileComparison) -> Text:
         """Render content-depth detail: path, status, and hashes."""
-        style, prefix = _STATUS_STYLES[comp.status]
+        style, prefix = STATUS_STYLES[comp.status]
         text = Text()
         text.append(f"File: {comp.relative_path}\n", style="bold")
         text.append(f"Status: {prefix} {comp.status.value}\n", style=style)
-        text.append(f"Left Hash:  {_truncate_hash(comp.content_hash_left)}\n")
-        text.append(f"Right Hash: {_truncate_hash(comp.content_hash_right)}\n")
+        text.append(f"Left Hash:  {truncate_hash(comp.content_hash_left)}\n")
+        text.append(f"Right Hash: {truncate_hash(comp.content_hash_right)}\n")
         if comp.similarity is not None:
             text.append(f"Similarity: {comp.similarity:.0%}\n")
         return text
@@ -87,7 +78,7 @@ class DiffPanel(Static):
     @staticmethod
     def _render_text(comp: FileComparison) -> Text:
         """Render text-depth detail: full unified diff."""
-        style, prefix = _STATUS_STYLES[comp.status]
+        style, prefix = STATUS_STYLES[comp.status]
         text = Text()
 
         # Header with similarity
