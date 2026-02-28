@@ -39,14 +39,20 @@ class DiffPanel(Static):
     }
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_content: str = ""
+
     def update_comparison(self, comp: FileComparison, depth: DiffDepth) -> None:
         """Render the comparison detail based on depth."""
         if depth == DiffDepth.structure:
-            self.update(self._render_structure(comp))
+            rendered = self._render_structure(comp)
         elif depth == DiffDepth.content:
-            self.update(self._render_content_depth(comp))
+            rendered = self._render_content_depth(comp)
         else:
-            self.update(self._render_text(comp))
+            rendered = self._render_text(comp)
+        self.last_content = rendered.plain
+        self.update(rendered)
 
     @staticmethod
     def _render_structure(comp: FileComparison) -> Text:
