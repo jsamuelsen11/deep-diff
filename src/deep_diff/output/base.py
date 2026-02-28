@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from deep_diff.core.models import DiffResult
+    from deep_diff.core.models import DiffResult, DiffStats
 
 
 @runtime_checkable
@@ -18,4 +18,8 @@ class Renderer(Protocol):
 
     def render(self, result: DiffResult) -> None:
         """Render the diff result."""
+        ...
+
+    def render_stats(self, stats: DiffStats) -> None:
+        """Render summary statistics."""
         ...
