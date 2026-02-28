@@ -25,12 +25,16 @@ from deep_diff.core import (
     comparator as comparator_module,
 )
 from deep_diff.core import (
+    content as content_module,
+)
+from deep_diff.core import (
     text as text_module,
 )
 
 EXPECTED_NAMES = {
     "ChangeType",
     "Comparator",
+    "ContentComparator",
     "DiffDepth",
     "DiffResult",
     "DiffStats",
@@ -86,6 +90,9 @@ class TestReExportIdentity:
 
     def test_comparator_is_identical(self) -> None:
         assert core.Comparator is comparator_module.Comparator
+
+    def test_content_comparator_is_identical(self) -> None:
+        assert core.ContentComparator is content_module.ContentComparator
 
     def test_text_comparator_is_identical(self) -> None:
         assert core.TextComparator is text_module.TextComparator

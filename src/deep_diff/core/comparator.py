@@ -32,6 +32,7 @@ class Comparator:
         *,
         filter_config: FilterConfig | None = None,
         context_lines: int = 3,
+        hash_algo: str = "sha256",
     ) -> None:
         """Initialize the comparator.
 
@@ -39,10 +40,12 @@ class Comparator:
             depth: Comparison depth level. Auto-detected if None.
             filter_config: Filtering rules. Defaults to FilterConfig() if None.
             context_lines: Number of context lines for text diffs.
+            hash_algo: Hash algorithm for content comparison.
         """
         self._depth = depth
         self._filter_config = filter_config or FilterConfig()
         self._context_lines = context_lines
+        self._hash_algo = hash_algo
 
     def compare(self, left: Path, right: Path) -> DiffResult:
         """Run the comparison pipeline.
@@ -104,11 +107,49 @@ class Comparator:
         if depth == DiffDepth.structure:
             return StructureComparator(self._filter_config).compare(left, right)
 
+        if depth == DiffDepth.content:
+            return self._run_content_pipeline(left, right)
+
         if depth == DiffDepth.text:
             return self._run_text_pipeline(left, right)
 
         msg = f"Depth '{depth}' is not yet implemented"
         raise NotImplementedError(msg)
+
+    def _run_content_pipeline(
+        self,
+        left: Path,
+        right: Path,
+    ) -> tuple[FileComparison, ...]:
+        """Run structure pass, then enrich with content hashes.
+
+        For file pairs, skips the structure pass and hashes directly.
+        """
+        from deep_diff.core.content import ContentComparator
+
+        content_comp = ContentComparator(hash_algo=self._hash_algo)
+
+        if left.is_file() and right.is_file():
+            return (content_comp.compare(left, right),)
+
+        structure_comparisons = StructureComparator(
+            self._filter_config,
+        ).compare(left, right)
+
+        enriched: list[FileComparison] = []
+        for fc in structure_comparisons:
+            if fc.left_path and fc.right_path:
+                enriched.append(
+                    content_comp.compare(
+                        fc.left_path,
+                        fc.right_path,
+                        relative_path=fc.relative_path,
+                    )
+                )
+            else:
+                enriched.append(fc)
+
+        return tuple(enriched)
 
     def _run_text_pipeline(
         self,

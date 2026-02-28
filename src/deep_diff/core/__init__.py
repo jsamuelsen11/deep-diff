@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from deep_diff.core.comparator import Comparator
+from deep_diff.core.content import ContentComparator
 from deep_diff.core.filtering import FileFilter, FilterConfig
 from deep_diff.core.models import (
     ChangeType,
@@ -21,6 +22,7 @@ from deep_diff.core.text import TextComparator
 __all__ = [
     "ChangeType",
     "Comparator",
+    "ContentComparator",
     "DiffDepth",
     "DiffResult",
     "DiffStats",
