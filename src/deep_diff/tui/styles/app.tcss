@@ -1,1 +1,15 @@
-/* deep-diff TUI styles */
+/* deep-diff TUI layout styles */
+
+#main-container {
+    layout: horizontal;
+    height: 1fr;
+}
+
+/* Split view: show panel, constrain tree */
+.split-view DiffPanel {
+    display: block;
+}
+
+.split-view DiffTree {
+    max-width: 40%;
+}
