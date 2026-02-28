@@ -104,8 +104,9 @@ def _truncate_hash(hex_digest: str | None, *, length: int = 8) -> str:
 class HtmlRenderer:
     """Renders diff results as a standalone HTML document.
 
-    Uses Pygments DiffLexer for syntax highlighting of text-depth diffs
-    with GitHub-inspired CSS styling.
+    Text-depth diffs are rendered as color-coded unified diff blocks
+    with GitHub-inspired CSS styling. Structure and content depths
+    use HTML tables.
 
     Output modes:
     - render(): Full diff result as HTML
@@ -204,7 +205,7 @@ class HtmlRenderer:
         )
 
     def _build_text_html(self, result: DiffResult) -> str:
-        """Build HTML for text-depth results with Pygments-highlighted diffs."""
+        """Build HTML for text-depth results with color-coded diff blocks."""
         parts: list[str] = []
 
         for comp in result.comparisons:

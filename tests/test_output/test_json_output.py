@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-import sys
 from io import StringIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from deep_diff.core.models import (
     ChangeType,
@@ -19,6 +19,9 @@ from deep_diff.core.models import (
 )
 from deep_diff.output.base import Renderer
 from deep_diff.output.json_output import JsonRenderer
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _make_result(
@@ -41,14 +44,21 @@ def _make_result(
 class TestJsonRendererInit:
     """Verify JsonRenderer constructor."""
 
-    def test_default_output_is_stdout(self) -> None:
+    def test_default_output_writes_to_stdout(self, capsys: pytest.CaptureFixture[str]) -> None:
         r = JsonRenderer()
-        assert r._output is sys.stdout
+        stats = DiffStats(total_files=1, identical=1, modified=0, added=0, removed=0)
+        r.render_stats(stats)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["total_files"] == 1
 
-    def test_custom_output(self) -> None:
+    def test_custom_output_receives_content(self) -> None:
         buf = StringIO()
         r = JsonRenderer(output=buf)
-        assert r._output is buf
+        result = _make_result(())
+        r.render(result)
+        assert len(buf.getvalue()) > 0
+        json.loads(buf.getvalue())  # must be valid JSON
 
     def test_custom_indent(self) -> None:
         buf = StringIO()
