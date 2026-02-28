@@ -61,6 +61,9 @@ class RichRenderer:
             self._render_content(result)
         elif result.depth == DiffDepth.text:
             self._render_text(result)
+        else:
+            msg = f"Unsupported depth for rendering: '{result.depth}'"
+            raise NotImplementedError(msg)
 
     def render_stats(self, stats: DiffStats) -> None:
         """Render summary statistics."""

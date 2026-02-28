@@ -306,6 +306,14 @@ class TestRichRendererContentTable:
         result = _make_result((comp,), depth=DiffDepth.content)
         output = _capture_render(r, result)
         assert "aabbccdd" in output
+        # Left hash column should render as dash placeholder
+        lines = [line for line in output.splitlines() if "new.txt" in line]
+        assert len(lines) == 1
+        row = lines[0]
+        # Dash should appear before the right hash (left hash column)
+        dash_pos = row.index("-")
+        hash_pos = row.index("aabbccdd")
+        assert dash_pos < hash_pos
 
     def test_content_table_removed_file_shows_dash_for_right(self) -> None:
         console = Console(file=StringIO(), force_terminal=True, width=120)
@@ -321,6 +329,14 @@ class TestRichRendererContentTable:
         result = _make_result((comp,), depth=DiffDepth.content)
         output = _capture_render(r, result)
         assert "aabbccdd" in output
+        # Right hash column should render as dash placeholder
+        lines = [line for line in output.splitlines() if "old.txt" in line]
+        assert len(lines) == 1
+        row = lines[0]
+        # Dash should appear after the left hash (right hash column)
+        hash_pos = row.index("aabbccdd")
+        dash_pos = row.rindex("-")
+        assert dash_pos > hash_pos
 
     def test_content_table_hash_truncation(self) -> None:
         console = Console(file=StringIO(), force_terminal=True, width=120)
@@ -340,6 +356,28 @@ class TestRichRendererContentTable:
         assert "a1b2c3d4" in output
         # Full hash should NOT appear
         assert long_hash not in output
+
+    def test_content_table_both_hashes_none(self) -> None:
+        # Use no_color console so we can inspect cell values without ANSI codes
+        console = Console(file=StringIO(), force_terminal=False, no_color=True, width=120)
+        r = RichRenderer(console=console)
+        comp = FileComparison(
+            relative_path="orphan.txt",
+            status=FileStatus.identical,
+            left_path=Path("/tmp/left/orphan.txt"),
+            right_path=Path("/tmp/right/orphan.txt"),
+            content_hash_left=None,
+            content_hash_right=None,
+            similarity=1.0,
+        )
+        result = _make_result((comp,), depth=DiffDepth.content)
+        output = _capture_render(r, result)
+        lines = [line for line in output.splitlines() if "orphan.txt" in line]
+        assert len(lines) == 1
+        # Split the row by the table column separator and check hash cells
+        cells = [c.strip() for c in lines[0].split("│")]
+        hash_cells = [c for c in cells if c == "-"]
+        assert len(hash_cells) >= 2
 
     def test_content_table_empty_comparisons(self) -> None:
         console = Console(file=StringIO(), force_terminal=True, width=120)
