@@ -162,6 +162,14 @@ def main(
         )
         result = comparator.compare(Path(left), Path(right))
 
+        # TUI runs its own event loop — handle before renderer
+        if output_mode == OutputMode.tui:
+            from deep_diff.tui import DeepDiffApp
+
+            tui_app = DeepDiffApp(result, stat_only=stat)
+            tui_app.run()
+            return
+
         renderer = _get_renderer(output_mode)
 
         if stat:
