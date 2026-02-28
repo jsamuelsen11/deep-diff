@@ -34,6 +34,14 @@ class TestComparatorInit:
         c = Comparator(filter_config=config)
         assert c._filter_config is config
 
+    def test_default_hash_algo(self) -> None:
+        c = Comparator()
+        assert c._hash_algo == "sha256"
+
+    def test_custom_hash_algo(self) -> None:
+        c = Comparator(hash_algo="md5")
+        assert c._hash_algo == "md5"
+
 
 class TestComparatorAutoDetection:
     """Verify depth auto-detection from path types."""
@@ -163,13 +171,141 @@ class TestComparatorPathValidation:
         assert result.right_root.is_absolute()
 
 
-class TestComparatorNotImplemented:
-    """Verify unimplemented depths raise NotImplementedError."""
+class TestComparatorContentDepthOnDirs:
+    """Verify structure -> content pipeline for directory comparisons."""
 
-    def test_content_depth_raises(self, sample_dirs: tuple[Path, Path]) -> None:
+    def test_content_depth_on_dirs_returns_result(self, sample_dirs: tuple[Path, Path]) -> None:
         left, right = sample_dirs
-        with pytest.raises(NotImplementedError, match="content"):
-            Comparator(DiffDepth.content).compare(left, right)
+        result = Comparator(DiffDepth.content).compare(left, right)
+        assert isinstance(result, DiffResult)
+        assert result.depth == DiffDepth.content
+
+    def test_identical_files_have_matching_hashes(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "same.txt").write_text("same content\n")
+        (right / "same.txt").write_text("same content\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        same = by_path["same.txt"]
+        assert same.status == FileStatus.identical
+        assert same.content_hash_left == same.content_hash_right
+        assert same.similarity == 1.0
+
+    def test_modified_files_have_different_hashes(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "changed.txt").write_text("original\n")
+        (right / "changed.txt").write_text("modified\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        changed = by_path["changed.txt"]
+        assert changed.status == FileStatus.modified
+        assert changed.content_hash_left != changed.content_hash_right
+        assert changed.similarity is None
+
+    def test_added_files_pass_through(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (right / "new.txt").write_text("added\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        added = by_path["new.txt"]
+        assert added.status == FileStatus.added
+        assert added.left_path is None
+        assert added.content_hash_left is None
+        assert added.content_hash_right is None
+
+    def test_removed_files_pass_through(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "old.txt").write_text("removed\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        removed = by_path["old.txt"]
+        assert removed.status == FileStatus.removed
+        assert removed.right_path is None
+        assert removed.content_hash_left is None
+        assert removed.content_hash_right is None
+
+    def test_mixed_statuses_all_correct(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "same.txt").write_text("identical\n")
+        (right / "same.txt").write_text("identical\n")
+        (left / "changed.txt").write_text("before\n")
+        (right / "changed.txt").write_text("after\n")
+        (left / "gone.txt").write_text("removed\n")
+        (right / "new.txt").write_text("added\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        assert by_path["same.txt"].status == FileStatus.identical
+        assert by_path["changed.txt"].status == FileStatus.modified
+        assert by_path["gone.txt"].status == FileStatus.removed
+        assert by_path["new.txt"].status == FileStatus.added
+        assert result.stats.identical == 1
+        assert result.stats.modified == 1
+        assert result.stats.removed == 1
+        assert result.stats.added == 1
+
+    def test_content_hashes_populated_for_paired_files(
+        self, sample_dirs: tuple[Path, Path]
+    ) -> None:
+        left, right = sample_dirs
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        for c in result.comparisons:
+            if c.left_path and c.right_path:
+                assert c.content_hash_left is not None
+                assert c.content_hash_right is not None
+
+
+class TestComparatorContentDepthOnFiles:
+    """Verify content pipeline on single file pairs."""
+
+    def test_identical_files(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_text("same\n")
+        right.write_text("same\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        assert len(result.comparisons) == 1
+        assert result.comparisons[0].status == FileStatus.identical
+        assert result.comparisons[0].content_hash_left == result.comparisons[0].content_hash_right
+
+    def test_different_files(self, tmp_path: Path) -> None:
+        left = tmp_path / "a.txt"
+        right = tmp_path / "b.txt"
+        left.write_text("hello\n")
+        right.write_text("world\n")
+
+        result = Comparator(DiffDepth.content).compare(left, right)
+
+        assert len(result.comparisons) == 1
+        assert result.comparisons[0].status == FileStatus.modified
+        assert result.comparisons[0].content_hash_left != result.comparisons[0].content_hash_right
 
 
 class TestComparatorTextDepthOnDirs:

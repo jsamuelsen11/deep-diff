@@ -158,6 +158,7 @@ def main(
             depth=parsed_depth,
             filter_config=filter_config,
             context_lines=context_lines,
+            hash_algo=hash_algo,
         )
         result = comparator.compare(Path(left), Path(right))
 
