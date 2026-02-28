@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
@@ -11,6 +11,9 @@ from deep_diff.core.comparator import Comparator
 from deep_diff.core.filtering import FilterConfig
 from deep_diff.core.models import DiffDepth, OutputMode
 from deep_diff.output.rich_output import RichRenderer
+
+if TYPE_CHECKING:
+    from deep_diff.output.base import Renderer
 
 app = typer.Typer(
     name="deep-diff",
@@ -67,7 +70,7 @@ def _build_filter_config(
     )
 
 
-def _get_renderer(output_mode: OutputMode) -> RichRenderer:
+def _get_renderer(output_mode: OutputMode) -> Renderer:
     """Get the appropriate renderer for the output mode.
 
     Args:
@@ -81,6 +84,14 @@ def _get_renderer(output_mode: OutputMode) -> RichRenderer:
     """
     if output_mode == OutputMode.rich:
         return RichRenderer()
+    if output_mode == OutputMode.json:
+        from deep_diff.output.json_output import JsonRenderer
+
+        return JsonRenderer()
+    if output_mode == OutputMode.html:
+        from deep_diff.output.html_output import HtmlRenderer
+
+        return HtmlRenderer()
 
     msg = f"Output mode '{output_mode}' is not yet implemented"
     raise NotImplementedError(msg)

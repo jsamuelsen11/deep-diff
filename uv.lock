@@ -154,6 +154,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "types-pygments" },
 ]
 
 [package.metadata]
@@ -171,6 +172,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.5.0" },
+    { name = "types-pygments", specifier = ">=2.18" },
 ]
 
 [[package]]
@@ -572,6 +574,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f5/24/cb09efec5cc954f7f9b930bf8279447d24618bb6758d4f6adf2574c41780/typer-0.24.1.tar.gz", hash = "sha256:e39b4732d65fbdcde189ae76cf7cd48aeae72919dea1fdfc16593be016256b45", size = 118613, upload-time = "2026-02-21T16:54:40.609Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/91/48db081e7a63bb37284f9fbcefda7c44c277b18b0e13fbc36ea2335b71e6/typer-0.24.1-py3-none-any.whl", hash = "sha256:112c1f0ce578bfb4cab9ffdabc68f031416ebcc216536611ba21f04e9aa84c9e", size = 56085, upload-time = "2026-02-21T16:54:41.616Z" },
+]
+
+[[package]]
+name = "types-docutils"
+version = "0.22.3.20260223"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/33/92c0129283363e3b3ba270bf6a2b7d077d949d2f90afc4abaf6e73578563/types_docutils-0.22.3.20260223.tar.gz", hash = "sha256:e90e868da82df615ea2217cf36dff31f09660daa15fc0f956af53f89c1364501", size = 57230, upload-time = "2026-02-23T04:11:21.806Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/c7/a4ae6a75d5b07d63089d5c04d450a0de4a5d48ffcb84b95659b22d3885fe/types_docutils-0.22.3.20260223-py3-none-any.whl", hash = "sha256:cc2d6b7560a28e351903db0989091474aa619ad287843a018324baee9c4d9a8f", size = 91969, upload-time = "2026-02-23T04:11:20.966Z" },
+]
+
+[[package]]
+name = "types-pygments"
+version = "2.19.0.20251121"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "types-docutils" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/90/3b/cd650700ce9e26b56bd1a6aa4af397bbbc1784e22a03971cb633cdb0b601/types_pygments-2.19.0.20251121.tar.gz", hash = "sha256:eef114fde2ef6265365522045eac0f8354978a566852f69e75c531f0553822b1", size = 18590, upload-time = "2025-11-21T03:03:46.623Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/8a/9244b21f1d60dcc62e261435d76b02f1853b4771663d7ec7d287e47a9ba9/types_pygments-2.19.0.20251121-py3-none-any.whl", hash = "sha256:cb3bfde34eb75b984c98fb733ce4f795213bd3378f855c32e75b49318371bb25", size = 25674, upload-time = "2025-11-21T03:03:45.72Z" },
 ]
 
 [[package]]
