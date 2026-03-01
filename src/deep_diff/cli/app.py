@@ -101,11 +101,11 @@ def _get_renderer(output_mode: OutputMode) -> Renderer:
 def main(
     left: Annotated[
         str,
-        typer.Argument(help="Left path (file or directory) to compare."),
+        typer.Argument(help="Left path or git ref (git:<ref>) to compare."),
     ],
     right: Annotated[
         str,
-        typer.Argument(help="Right path (file or directory) to compare."),
+        typer.Argument(help="Right path or git ref (git:<ref>) to compare."),
     ],
     depth: Annotated[
         str | None,
@@ -154,7 +154,13 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """Compare files and directories at multiple depth levels."""
+    """Compare files and directories at multiple depth levels.
+
+    Supports git refs with the git: prefix (e.g. git:main, git:HEAD~2).
+    """
+    from deep_diff.git.commands import GitError
+    from deep_diff.git.resolver import GitResolver
+
     try:
         parsed_depth = _parse_depth(depth)
         output_mode = _parse_output_mode(output)
@@ -171,24 +177,27 @@ def main(
             context_lines=context_lines,
             hash_algo=hash_algo,
         )
-        result = comparator.compare(Path(left), Path(right))
 
-        # TUI runs its own event loop — handle before renderer
-        if output_mode == OutputMode.tui:
-            from deep_diff.tui import DeepDiffApp
+        with GitResolver(cwd=Path.cwd()) as resolver:
+            left_path, right_path = resolver.resolve_pair(left, right)
+            result = comparator.compare(left_path, right_path)
 
-            tui_app = DeepDiffApp(result, stat_only=stat)
-            tui_app.run()
-            return
+            # TUI runs its own event loop — handle before renderer
+            if output_mode == OutputMode.tui:
+                from deep_diff.tui import DeepDiffApp
 
-        renderer = _get_renderer(output_mode)
+                tui_app = DeepDiffApp(result, stat_only=stat)
+                tui_app.run()
+                return
 
-        if stat:
-            renderer.render_stats(result.stats)
-        else:
-            renderer.render(result)
+            renderer = _get_renderer(output_mode)
 
-    except (FileNotFoundError, ValueError, NotADirectoryError) as exc:
+            if stat:
+                renderer.render_stats(result.stats)
+            else:
+                renderer.render(result)
+
+    except (FileNotFoundError, ValueError, NotADirectoryError, GitError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=2) from None
     except NotImplementedError as exc:
