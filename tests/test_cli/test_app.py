@@ -307,3 +307,108 @@ class TestCliErrorHandling:
         result = runner.invoke(app, [str(a_file), str(right)])
         assert result.exit_code == 2
         assert "Error:" in result.output
+
+
+class TestCliSaveSnapshot:
+    """Verify --save-snapshot flag."""
+
+    def test_save_snapshot_creates_file(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        result = runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        assert result.exit_code == 0
+        assert snap.exists()
+
+    def test_save_snapshot_is_valid_json(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        data = json.loads(snap.read_text())
+        assert isinstance(data, dict)
+
+    def test_save_snapshot_has_version(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        data = json.loads(snap.read_text())
+        assert data["snapshot_version"] == 1
+
+    def test_save_snapshot_has_result_keys(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        data = json.loads(snap.read_text())
+        assert "left_root" in data["result"]
+        assert "comparisons" in data["result"]
+
+
+class TestCliBaseline:
+    """Verify --baseline flag."""
+
+    def test_baseline_exits_0_no_changes(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        result = runner.invoke(app, [str(left), str(right), "--baseline", str(snap)])
+        assert result.exit_code == 0
+        assert "No changes from baseline" in result.output
+
+    def test_baseline_missing_file_exits_2(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(
+            app,
+            [str(left), str(right), "--baseline", str(tmp_path / "nonexistent.json")],
+        )
+        assert result.exit_code == 2
+
+    def test_baseline_invalid_json_exits_2(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        bad = tmp_path / "bad.json"
+        bad.write_text("not json")
+        result = runner.invoke(app, [str(left), str(right), "--baseline", str(bad)])
+        assert result.exit_code == 2
+
+    def test_baseline_combined_with_save_snapshot(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap1 = tmp_path / "snap1.json"
+        snap2 = tmp_path / "snap2.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap1)])
+        result = runner.invoke(
+            app,
+            [
+                str(left),
+                str(right),
+                "--baseline",
+                str(snap1),
+                "--save-snapshot",
+                str(snap2),
+            ],
+        )
+        assert result.exit_code == 0
+        assert snap2.exists()
+
+    def test_baseline_output_contains_stats_delta(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        runner.invoke(app, [str(left), str(right), "--save-snapshot", str(snap)])
+        result = runner.invoke(app, [str(left), str(right), "--baseline", str(snap)])
+        assert result.exit_code == 0
+        assert "Stats Delta" in result.output
