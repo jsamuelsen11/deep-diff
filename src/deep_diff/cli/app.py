@@ -147,6 +147,14 @@ def main(
         int,
         typer.Option("--workers", "-w", help="Parallel workers. 0=auto, 1=serial.", min=0),
     ] = 0,
+    save_snapshot: Annotated[
+        Path | None,
+        typer.Option("--save-snapshot", help="Save the diff result as a JSON snapshot."),
+    ] = None,
+    baseline: Annotated[
+        Path | None,
+        typer.Option("--baseline", help="Compare against a previous snapshot."),
+    ] = None,
     version: Annotated[
         bool | None,
         typer.Option(
@@ -187,6 +195,36 @@ def main(
             left_path, right_path = resolver.resolve_pair(left, right)
             result = comparator.compare(left_path, right_path)
 
+            # Save snapshot if requested (always, even when --baseline is given)
+            if save_snapshot is not None:
+                from deep_diff.core.snapshot import save_snapshot as _save_snapshot
+
+                _save_snapshot(result, save_snapshot)
+
+            # Baseline comparison replaces normal rendering
+            if baseline is not None:
+                from deep_diff.core.snapshot import (
+                    SnapshotError,
+                    compare_to_baseline,
+                    load_snapshot,
+                    render_baseline,
+                )
+
+                try:
+                    baseline_result = load_snapshot(baseline)
+                except SnapshotError as exc:
+                    typer.echo(f"Error: {exc}", err=True)
+                    raise typer.Exit(code=2) from None
+                if baseline_result.depth != result.depth:
+                    typer.echo(
+                        f"Warning: baseline depth '{baseline_result.depth}' "
+                        f"differs from current depth '{result.depth}'.",
+                        err=True,
+                    )
+                comparison = compare_to_baseline(baseline_result, result)
+                render_baseline(comparison)
+                return
+
             # TUI runs its own event loop — handle before renderer
             if output_mode == OutputMode.tui:
                 from deep_diff.tui import DeepDiffApp
@@ -202,7 +240,7 @@ def main(
             else:
                 renderer.render(result)
 
-    except (FileNotFoundError, ValueError, NotADirectoryError, GitError) as exc:
+    except (FileNotFoundError, ValueError, NotADirectoryError, OSError, GitError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=2) from None
     except NotImplementedError as exc:
