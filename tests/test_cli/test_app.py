@@ -255,6 +255,35 @@ class TestCliGitRef:
         assert result.exit_code == 0
 
 
+class TestCliWorkersFlag:
+    """Verify --workers flag is accepted and validated."""
+
+    def test_workers_flag_accepted(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--workers", "4"])
+        assert result.exit_code == 0
+
+    def test_workers_short_flag(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "-w", "4"])
+        assert result.exit_code == 0
+
+    def test_workers_zero_is_default(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right)])
+        assert result.exit_code == 0
+
+    def test_workers_serial(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--workers", "1"])
+        assert result.exit_code == 0
+
+    def test_workers_negative_rejected(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--workers", "-1"])
+        assert result.exit_code != 0
+
+
 class TestCliErrorHandling:
     """Verify error handling for invalid inputs."""
 

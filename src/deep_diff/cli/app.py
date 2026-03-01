@@ -143,6 +143,10 @@ def main(
         int,
         typer.Option("--context", "-C", help="Number of context lines in text diffs."),
     ] = 3,
+    workers: Annotated[
+        int,
+        typer.Option("--workers", "-w", help="Parallel workers. 0=auto, 1=serial.", min=0),
+    ] = 0,
     version: Annotated[
         bool | None,
         typer.Option(
@@ -176,6 +180,7 @@ def main(
             filter_config=filter_config,
             context_lines=context_lines,
             hash_algo=hash_algo,
+            max_workers=workers,
         )
 
         with GitResolver(cwd=Path.cwd()) as resolver:

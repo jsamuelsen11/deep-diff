@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from deep_diff.core.filtering import FilterConfig
@@ -9,6 +11,7 @@ from deep_diff.core.models import DiffDepth, DiffResult, DiffStats
 from deep_diff.core.structure import StructureComparator
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from deep_diff.core.models import FileComparison
@@ -33,6 +36,7 @@ class Comparator:
         filter_config: FilterConfig | None = None,
         context_lines: int = 3,
         hash_algo: str = "sha256",
+        max_workers: int = 0,
     ) -> None:
         """Initialize the comparator.
 
@@ -41,11 +45,13 @@ class Comparator:
             filter_config: Filtering rules. Defaults to FilterConfig() if None.
             context_lines: Number of context lines for text diffs.
             hash_algo: Hash algorithm for content comparison.
+            max_workers: Parallel workers. 0=auto, 1=serial, >1=explicit.
         """
         self._depth = depth
         self._filter_config = filter_config or FilterConfig()
         self._context_lines = context_lines
         self._hash_algo = hash_algo
+        self._max_workers = max_workers
 
     def compare(self, left: Path, right: Path) -> DiffResult:
         """Run the comparison pipeline.
@@ -116,6 +122,46 @@ class Comparator:
         msg = f"Depth '{depth}' is not yet implemented"
         raise NotImplementedError(msg)
 
+    def _resolve_workers(self) -> int:
+        """Resolve the effective worker count.
+
+        Returns:
+            Effective number of workers. 1 means serial execution.
+        """
+        if self._max_workers >= 1:
+            return self._max_workers
+        return min(32, (os.cpu_count() or 1) + 4)
+
+    def _run_parallel(
+        self,
+        structure_comparisons: tuple[FileComparison, ...],
+        compare_fn: Callable[[Path, Path, str], FileComparison],
+    ) -> tuple[FileComparison, ...]:
+        """Enrich file comparisons, optionally in parallel.
+
+        Added/removed files (where one side is None) are passed through
+        without submitting real work to the thread pool.
+
+        Args:
+            structure_comparisons: Structure-level results to enrich.
+            compare_fn: Comparison function accepting (left, right, relative_path).
+
+        Returns:
+            Tuple of enriched FileComparisons in the same order as input.
+        """
+
+        def enrich(fc: FileComparison) -> FileComparison:
+            if fc.left_path and fc.right_path:
+                return compare_fn(fc.left_path, fc.right_path, fc.relative_path)
+            return fc
+
+        workers = self._resolve_workers()
+        if workers == 1 or len(structure_comparisons) <= 1:
+            return tuple(enrich(fc) for fc in structure_comparisons)
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            return tuple(executor.map(enrich, structure_comparisons))
+
     def _run_content_pipeline(
         self,
         left: Path,
@@ -136,20 +182,10 @@ class Comparator:
             self._filter_config,
         ).compare(left, right)
 
-        enriched: list[FileComparison] = []
-        for fc in structure_comparisons:
-            if fc.left_path and fc.right_path:
-                enriched.append(
-                    content_comp.compare(
-                        fc.left_path,
-                        fc.right_path,
-                        relative_path=fc.relative_path,
-                    )
-                )
-            else:
-                enriched.append(fc)
-
-        return tuple(enriched)
+        return self._run_parallel(
+            structure_comparisons,
+            lambda left, right, rel: content_comp.compare(left, right, relative_path=rel),
+        )
 
     def _run_text_pipeline(
         self,
@@ -171,20 +207,10 @@ class Comparator:
             self._filter_config,
         ).compare(left, right)
 
-        enriched: list[FileComparison] = []
-        for fc in structure_comparisons:
-            if fc.left_path and fc.right_path:
-                enriched.append(
-                    text_comp.compare(
-                        fc.left_path,
-                        fc.right_path,
-                        relative_path=fc.relative_path,
-                    )
-                )
-            else:
-                enriched.append(fc)
-
-        return tuple(enriched)
+        return self._run_parallel(
+            structure_comparisons,
+            lambda left, right, rel: text_comp.compare(left, right, relative_path=rel),
+        )
 
     @staticmethod
     def _validate_paths_exist(left: Path, right: Path) -> None:
