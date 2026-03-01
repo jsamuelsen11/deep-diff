@@ -9,6 +9,7 @@ import pytest
 
 from deep_diff.git.commands import (
     GitError,
+    _reject_option_like,
     extract_file,
     find_repo_root,
     list_tree_files,
@@ -17,6 +18,31 @@ from deep_diff.git.commands import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+class TestRejectOptionLike:
+    """Tests for _reject_option_like flag-injection guard."""
+
+    def test_plain_value_passes(self) -> None:
+        _reject_option_like("main", label="ref")
+
+    def test_sha_passes(self) -> None:
+        _reject_option_like("abc123", label="ref")
+
+    def test_path_passes(self) -> None:
+        _reject_option_like("src/deep_diff/core.py", label="path")
+
+    def test_single_dash_rejected(self) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            _reject_option_like("-v", label="ref")
+
+    def test_double_dash_rejected(self) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            _reject_option_like("--upload-pack=evil", label="ref")
+
+    def test_label_appears_in_message(self) -> None:
+        with pytest.raises(GitError, match="Git ref"):
+            _reject_option_like("--flag", label="Git ref")
 
 
 class TestFindRepoRoot:
@@ -67,6 +93,10 @@ class TestValidateRef:
         with pytest.raises(GitError, match="Invalid git ref"):
             validate_ref("", repo_root=git_repo)
 
+    def test_option_like_ref_rejected(self, git_repo: Path) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            validate_ref("--upload-pack=evil", repo_root=git_repo)
+
 
 class TestListTreeFiles:
     """Tests for list_tree_files."""
@@ -92,6 +122,10 @@ class TestListTreeFiles:
     def test_invalid_ref_raises(self, git_repo: Path) -> None:
         with pytest.raises(GitError, match="Failed to list tree"):
             list_tree_files("nonexistent", repo_root=git_repo)
+
+    def test_option_like_ref_rejected(self, git_repo: Path) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            list_tree_files("--exec=evil", repo_root=git_repo)
 
 
 class TestExtractFile:
@@ -119,3 +153,11 @@ class TestExtractFile:
 
         with pytest.raises(GitError, match="does not exist at ref"):
             extract_file("main", "file_c.txt", repo_root=git_repo)
+
+    def test_option_like_ref_rejected(self, git_repo: Path) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            extract_file("--flag", "file_a.txt", repo_root=git_repo)
+
+    def test_option_like_path_rejected(self, git_repo: Path) -> None:
+        with pytest.raises(GitError, match="must not start with '-'"):
+            extract_file("main", "--evil", repo_root=git_repo)

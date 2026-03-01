@@ -1,4 +1,16 @@
-"""Low-level git subprocess wrappers."""
+"""Low-level git subprocess wrappers.
+
+Security notes
+--------------
+All subprocess calls use list-form arguments with ``shell=False`` (the
+default, but set explicitly for clarity).  This prevents shell injection.
+
+User-supplied values (refs, paths) are validated by ``_reject_option_like``
+before being passed to git, which prevents flag-injection attacks (e.g. a
+ref named ``--upload-pack=…`` being interpreted as a git option).  Where
+git supports it, ``--`` end-of-options markers are also used as a defence-
+in-depth measure.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +23,18 @@ if TYPE_CHECKING:
 
 class GitError(Exception):
     """Raised when a git operation fails or the environment is invalid."""
+
+
+def _reject_option_like(value: str, *, label: str) -> None:
+    """Raise ``GitError`` if *value* looks like a CLI option.
+
+    Git interprets strings starting with ``-`` as flags.  Rejecting them
+    up-front prevents flag-injection regardless of how the value is later
+    interpolated into a command list.
+    """
+    if value.startswith("-"):
+        msg = f"{label} must not start with '-': {value!r}"
+        raise GitError(msg)
 
 
 def find_repo_root(cwd: Path | None = None) -> Path:
@@ -31,6 +55,7 @@ def find_repo_root(cwd: Path | None = None) -> Path:
         capture_output=True,
         text=True,
         cwd=cwd_str,
+        shell=False,
     )
     if result.returncode != 0:
         msg = "Not inside a git repository"
@@ -53,12 +78,14 @@ def validate_ref(ref: str, *, repo_root: Path) -> str:
     Raises:
         GitError: If the ref cannot be resolved.
     """
+    _reject_option_like(ref, label="Git ref")
     cmd = ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"]
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         cwd=str(repo_root),
+        shell=False,
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -84,12 +111,15 @@ def list_tree_files(ref: str, *, repo_root: Path) -> tuple[str, ...]:
     Raises:
         GitError: If the git command fails.
     """
-    cmd = ["git", "ls-tree", "-r", ref]
+    _reject_option_like(ref, label="Git ref")
+    # -- separates options from the tree-ish argument
+    cmd = ["git", "ls-tree", "-r", "--", ref]
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         cwd=str(repo_root),
+        shell=False,
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -127,11 +157,14 @@ def extract_file(ref: str, path_in_repo: str, *, repo_root: Path) -> bytes:
     Raises:
         GitError: If the path does not exist at that ref.
     """
+    _reject_option_like(ref, label="Git ref")
+    _reject_option_like(path_in_repo, label="Path")
     cmd = ["git", "show", f"{ref}:{path_in_repo}"]
     result = subprocess.run(
         cmd,
         capture_output=True,
         cwd=str(repo_root),
+        shell=False,
     )
     if result.returncode != 0:
         stderr = result.stderr.decode(errors="replace").strip()
