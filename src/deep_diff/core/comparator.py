@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from deep_diff.core.models import FileComparison
+    from deep_diff.core.plugins import FileTypePlugin, PluginRegistry
+    from deep_diff.core.text import TextComparator
 
 
 class Comparator:
@@ -37,6 +39,7 @@ class Comparator:
         context_lines: int = 3,
         hash_algo: str = "sha256",
         max_workers: int = 0,
+        plugin_registry: PluginRegistry | None = None,
     ) -> None:
         """Initialize the comparator.
 
@@ -46,12 +49,16 @@ class Comparator:
             context_lines: Number of context lines for text diffs.
             hash_algo: Hash algorithm for content comparison.
             max_workers: Parallel workers. 0=auto, 1=serial, >1=explicit.
+            plugin_registry: Optional registry of file-type plugins. When
+                provided, matching plugins replace the default TextComparator
+                for files at ``depth=text``.
         """
         self._depth = depth
         self._filter_config = filter_config or FilterConfig()
         self._context_lines = context_lines
         self._hash_algo = hash_algo
         self._max_workers = max_workers
+        self._plugin_registry = plugin_registry
 
     def compare(self, left: Path, right: Path) -> DiffResult:
         """Run the comparison pipeline.
@@ -195,22 +202,42 @@ class Comparator:
         """Run structure pass, then enrich with text diffs.
 
         For file pairs, skips the structure pass and diffs directly.
+        When a plugin registry is set, matching files use the plugin's
+        comparator instead of the default TextComparator.
         """
         from deep_diff.core.text import TextComparator
 
         text_comp = TextComparator(context_lines=self._context_lines)
 
         if left.is_file() and right.is_file():
-            return (text_comp.compare(left, right),)
+            comparator = self._get_comparator_for_path(left.name, text_comp)
+            return (comparator.compare(left, right),)
 
         structure_comparisons = StructureComparator(
             self._filter_config,
         ).compare(left, right)
 
-        return self._run_parallel(
-            structure_comparisons,
-            lambda left, right, rel: text_comp.compare(left, right, relative_path=rel),
-        )
+        def compare_fn(left_file: Path, right_file: Path, rel: str) -> FileComparison:
+            comparator = self._get_comparator_for_path(rel, text_comp)
+            return comparator.compare(left_file, right_file, relative_path=rel)
+
+        return self._run_parallel(structure_comparisons, compare_fn)
+
+    def _get_comparator_for_path(
+        self,
+        relative_path: str,
+        default: TextComparator,
+    ) -> TextComparator | FileTypePlugin:
+        """Return the appropriate comparator for a file path.
+
+        Checks the plugin registry first. Falls back to the default
+        TextComparator if no plugin matches.
+        """
+        if self._plugin_registry is not None:
+            plugin = self._plugin_registry.get_for_path(relative_path)
+            if plugin is not None:
+                return plugin
+        return default
 
     @staticmethod
     def _validate_paths_exist(left: Path, right: Path) -> None:
