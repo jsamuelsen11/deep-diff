@@ -147,6 +147,14 @@ def main(
         int,
         typer.Option("--workers", "-w", help="Parallel workers. 0=auto, 1=serial.", min=0),
     ] = 0,
+    watch: Annotated[
+        bool,
+        typer.Option("--watch", "-W", help="Watch paths for changes and re-diff automatically."),
+    ] = False,
+    debounce: Annotated[
+        int | None,
+        typer.Option("--debounce", help="Watch debounce interval in milliseconds.", min=0),
+    ] = None,
     save_snapshot: Annotated[
         Path | None,
         typer.Option("--save-snapshot", help="Save the diff result as a JSON snapshot."),
@@ -171,11 +179,36 @@ def main(
     Supports git refs with the git: prefix (e.g. git:main, git:HEAD~2).
     """
     from deep_diff.git.commands import GitError
-    from deep_diff.git.resolver import GitResolver
+    from deep_diff.git.resolver import GitResolver, is_git_ref
 
     try:
         parsed_depth = _parse_depth(depth)
         output_mode = _parse_output_mode(output)
+
+        if not watch and debounce is not None:
+            typer.echo("Error: --debounce requires --watch.", err=True)
+            raise typer.Exit(code=1)
+
+        debounce_ms = debounce if debounce is not None else 1600
+
+        if watch:
+            if is_git_ref(left) or is_git_ref(right):
+                typer.echo("Error: --watch is not supported with git: refs.", err=True)
+                raise typer.Exit(code=1)
+            if output_mode != OutputMode.rich:
+                typer.echo(
+                    f"Error: --watch is only supported with --output rich "
+                    f"(got '{output_mode.value}').",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+            if save_snapshot is not None:
+                typer.echo("Error: --watch cannot be combined with --save-snapshot.", err=True)
+                raise typer.Exit(code=1)
+            if baseline is not None:
+                typer.echo("Error: --watch cannot be combined with --baseline.", err=True)
+                raise typer.Exit(code=1)
+
         filter_config = _build_filter_config(
             no_gitignore=no_gitignore,
             hidden=hidden,
@@ -193,6 +226,25 @@ def main(
 
         with GitResolver(cwd=Path.cwd()) as resolver:
             left_path, right_path = resolver.resolve_pair(left, right)
+
+            if watch:
+                from rich.console import Console
+
+                from deep_diff.core.watcher import run_watch_loop
+
+                rich_console = Console()
+                rich_renderer = RichRenderer(console=rich_console)
+                run_watch_loop(
+                    left_path,
+                    right_path,
+                    comparator=comparator,
+                    renderer=rich_renderer,
+                    console=rich_console,
+                    stat=stat,
+                    debounce=debounce_ms,
+                )
+                return
+
             result = comparator.compare(left_path, right_path)
 
             # Save snapshot if requested (always, even when --baseline is given)

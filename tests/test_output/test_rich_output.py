@@ -17,7 +17,7 @@ from deep_diff.core.models import (
     Hunk,
     TextChange,
 )
-from deep_diff.output.base import Renderer
+from deep_diff.output.base import Renderer, WatchRenderer
 from deep_diff.output.rich_output import RichRenderer
 
 
@@ -724,9 +724,155 @@ class TestRichRendererHelpers:
         assert RichRenderer._change_style(ChangeType.equal) == "dim"
 
 
+class TestRichRendererBuildRenderable:
+    """Verify build_renderable returns appropriate renderables."""
+
+    def test_structure_returns_tree(self) -> None:
+        from rich.tree import Tree
+
+        r = RichRenderer()
+        result = _make_result((), depth=DiffDepth.structure)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Tree)
+
+    def test_content_returns_table(self) -> None:
+        from rich.table import Table
+
+        r = RichRenderer()
+        comp = FileComparison(
+            relative_path="file.txt",
+            status=FileStatus.identical,
+            left_path=Path("/tmp/left/file.txt"),
+            right_path=Path("/tmp/right/file.txt"),
+            content_hash_left="aabbccdd",
+            content_hash_right="aabbccdd",
+            similarity=1.0,
+        )
+        result = _make_result((comp,), depth=DiffDepth.content)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Table)
+
+    def test_text_returns_group(self) -> None:
+        from rich.console import Group
+
+        r = RichRenderer()
+        result = _make_result((), depth=DiffDepth.text)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Group)
+
+    def test_text_group_contains_all_status_types(self) -> None:
+        """Build a text Group with every file status and verify output."""
+        console = Console(file=StringIO(), force_terminal=True, width=120)
+        r = RichRenderer(console=console)
+
+        hunk = Hunk(
+            start_left=1,
+            count_left=3,
+            start_right=1,
+            count_right=3,
+            changes=(
+                TextChange(ChangeType.equal, "context\n", line_left=1, line_right=1),
+                TextChange(ChangeType.delete, "old\n", line_left=2, line_right=None),
+                TextChange(ChangeType.insert, "new\n", line_left=None, line_right=2),
+                TextChange(ChangeType.equal, "context\n", line_left=3, line_right=3),
+            ),
+        )
+
+        comps = (
+            FileComparison(
+                relative_path="same.txt",
+                status=FileStatus.identical,
+                left_path=Path("/tmp/left/same.txt"),
+                right_path=Path("/tmp/right/same.txt"),
+                similarity=1.0,
+            ),
+            FileComparison(
+                relative_path="new.txt",
+                status=FileStatus.added,
+                left_path=None,
+                right_path=Path("/tmp/right/new.txt"),
+            ),
+            FileComparison(
+                relative_path="old.txt",
+                status=FileStatus.removed,
+                left_path=Path("/tmp/left/old.txt"),
+                right_path=None,
+            ),
+            FileComparison(
+                relative_path="changed.txt",
+                status=FileStatus.modified,
+                left_path=Path("/tmp/left/changed.txt"),
+                right_path=Path("/tmp/right/changed.txt"),
+                hunks=(hunk,),
+                similarity=0.75,
+            ),
+            FileComparison(
+                relative_path="image.png",
+                status=FileStatus.modified,
+                left_path=Path("/tmp/left/image.png"),
+                right_path=Path("/tmp/right/image.png"),
+                hunks=(),
+                similarity=None,
+            ),
+        )
+
+        result = _make_result(comps, depth=DiffDepth.text)
+        output = _capture_render(r, result)
+
+        # Identical
+        assert "same.txt" in output
+        assert "identical" in output
+        # Added
+        assert "new.txt" in output
+        assert "added" in output
+        # Removed
+        assert "old.txt" in output
+        assert "removed" in output
+        # Modified with hunks
+        assert "changed.txt" in output
+        assert "@@ -1,3 +1,3 @@" in output
+        assert "-old" in output
+        assert "+new" in output
+        assert "75% similar" in output
+        # Binary modified (no hunks)
+        assert "image.png" in output
+        assert "binary, modified" in output
+
+    def test_build_stats_renderable_returns_text(self) -> None:
+        from rich.text import Text
+
+        r = RichRenderer()
+        stats = DiffStats(total_files=5, identical=2, modified=1, added=1, removed=1)
+        renderable = r.build_stats_renderable(stats)
+        assert isinstance(renderable, Text)
+        plain = renderable.plain
+        assert "5" in plain
+        assert "added" in plain
+
+    def test_render_uses_build_renderable(self) -> None:
+        console = Console(file=StringIO(), force_terminal=True, width=120)
+        r = RichRenderer(console=console)
+        comp = FileComparison(
+            relative_path="test.txt",
+            status=FileStatus.added,
+            left_path=None,
+            right_path=Path("/tmp/right/test.txt"),
+        )
+        result = _make_result((comp,))
+        r.render(result)
+        file = r._console.file
+        assert isinstance(file, StringIO)
+        output = file.getvalue()
+        assert "test.txt" in output
+
+
 class TestRichRendererProtocol:
-    """Verify RichRenderer satisfies the Renderer protocol."""
+    """Verify RichRenderer satisfies the Renderer and WatchRenderer protocols."""
 
     def test_isinstance_check(self) -> None:
         r = RichRenderer()
         assert isinstance(r, Renderer)
+
+    def test_watch_renderer_isinstance_check(self) -> None:
+        r = RichRenderer()
+        assert isinstance(r, WatchRenderer)

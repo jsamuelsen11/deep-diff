@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from rich.console import RenderableType
+    from rich.text import Text
+
     from deep_diff.core.models import DiffResult, DiffStats
 
 
@@ -22,4 +25,21 @@ class Renderer(Protocol):
 
     def render_stats(self, stats: DiffStats) -> None:
         """Render summary statistics."""
+        ...
+
+
+@runtime_checkable
+class WatchRenderer(Protocol):
+    """Protocol for renderers that support watch-mode live updates.
+
+    Watch mode needs renderable objects (instead of direct console output)
+    so that ``rich.live.Live`` can refresh the display in-place.
+    """
+
+    def build_renderable(self, result: DiffResult) -> RenderableType:
+        """Build a Rich renderable for the diff result."""
+        ...
+
+    def build_stats_renderable(self, stats: DiffStats) -> Text:
+        """Build a Rich renderable for summary statistics."""
         ...
