@@ -488,3 +488,71 @@ class TestCliWatchFlag:
         result = runner.invoke(app, [str(left), str(right), "--debounce", "500"])
         assert result.exit_code == 1
         assert "--debounce requires --watch" in result.output
+
+
+class TestCliPluginFlags:
+    """Verify --plugin, --no-plugins, and --list-plugins flags."""
+
+    def test_list_plugins_flag(self) -> None:
+        result = runner.invoke(app, ["--list-plugins"])
+        assert result.exit_code == 0
+        assert "json" in result.output
+        assert "yaml" in result.output
+
+    def test_no_plugins_flag(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        # Different key order -> with --no-plugins should be modified (raw text)
+        left.write_text('{"b": 2, "a": 1}')
+        right.write_text('{"a": 1, "b": 2}')
+
+        result = runner.invoke(app, [str(left), str(right), "--no-plugins"])
+        assert result.exit_code == 0
+        # With plugins disabled, key reordering is a text diff (modified)
+        assert "modified" in result.output.lower() or "~" in result.output
+
+    def test_plugin_flag_with_valid_name(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text('{"b": 2, "a": 1}')
+        right.write_text('{"a": 1, "b": 2}')
+
+        result = runner.invoke(app, [str(left), str(right), "--plugin", "json"])
+        assert result.exit_code == 0
+
+    def test_plugin_flag_with_invalid_name(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text("{}")
+        right.write_text("{}")
+
+        result = runner.invoke(app, [str(left), str(right), "--plugin", "nonexistent"])
+        assert result.exit_code == 1
+        assert "Unknown plugin" in result.output
+
+    def test_plugins_active_by_default(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        # Different key order -> identical via JSON plugin (active by default)
+        left.write_text('{"b": 2, "a": 1}')
+        right.write_text('{"a": 1, "b": 2}')
+
+        result = runner.invoke(app, [str(left), str(right)])
+        assert result.exit_code == 0
+        assert "identical" in result.output.lower()
+
+    def test_no_plugins_and_plugin_mutually_exclusive(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text("{}")
+        right.write_text("{}")
+
+        result = runner.invoke(app, [str(left), str(right), "--no-plugins", "--plugin", "json"])
+        assert result.exit_code == 1
+        assert "mutually exclusive" in result.output
+
+    def test_help_includes_plugin_flags(self) -> None:
+        result = runner.invoke(app, ["--help"])
+        assert "--plugin" in result.output
+        assert "--no-plugins" in result.output
+        assert "--list-plugins" in result.output

@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import difflib
 from typing import TYPE_CHECKING
 
+from deep_diff.core.diff_utils import build_hunks_from_lines
 from deep_diff.core.models import (
-    ChangeType,
     FileComparison,
     FileStatus,
-    Hunk,
-    TextChange,
 )
 
 if TYPE_CHECKING:
@@ -56,6 +53,7 @@ class TextComparator:
         right: Path,
         *,
         relative_path: str = "",
+        context_lines: int | None = None,
     ) -> FileComparison:
         """Compare two files and produce line-level diff hunks.
 
@@ -64,12 +62,16 @@ class TextComparator:
             right: Path to the right file.
             relative_path: Relative path label for the result.
                 Defaults to ``left.name`` when empty.
+            context_lines: Override the instance's context lines setting.
+                When ``None`` (the default), uses the value from ``__init__``.
 
         Returns:
             A FileComparison with status, hunks, and similarity.
         """
         if not relative_path:
             relative_path = left.name
+
+        effective_context = context_lines if context_lines is not None else self._context_lines
 
         left_bytes = left.read_bytes()
         right_bytes = right.read_bytes()
@@ -89,6 +91,7 @@ class TextComparator:
             relative_path=relative_path,
             left_path=left,
             right_path=right,
+            context_lines=effective_context,
         )
 
     @staticmethod
@@ -130,125 +133,26 @@ class TextComparator:
         relative_path: str,
         left_path: Path,
         right_path: Path,
+        context_lines: int | None = None,
     ) -> FileComparison:
         """Compare two text files using difflib.SequenceMatcher."""
+        effective_context = context_lines if context_lines is not None else self._context_lines
         left_text = left_bytes.decode(self._encoding, errors=self._errors)
         right_text = right_bytes.decode(self._encoding, errors=self._errors)
 
         left_lines = left_text.splitlines(keepends=True)
         right_lines = right_text.splitlines(keepends=True)
 
-        matcher = difflib.SequenceMatcher(None, left_lines, right_lines)
-        similarity = matcher.ratio()
+        similarity, hunks = build_hunks_from_lines(
+            left_lines, right_lines, context_lines=effective_context
+        )
 
-        if similarity == 1.0:
-            return FileComparison(
-                relative_path=relative_path,
-                status=FileStatus.identical,
-                left_path=left_path,
-                right_path=right_path,
-                similarity=1.0,
-            )
-
-        hunks = self._build_hunks(matcher, left_lines, right_lines)
+        status = FileStatus.identical if similarity == 1.0 else FileStatus.modified
         return FileComparison(
             relative_path=relative_path,
-            status=FileStatus.modified,
+            status=status,
             left_path=left_path,
             right_path=right_path,
             hunks=hunks,
             similarity=similarity,
         )
-
-    def _build_hunks(
-        self,
-        matcher: difflib.SequenceMatcher[str],
-        left_lines: list[str],
-        right_lines: list[str],
-    ) -> tuple[Hunk, ...]:
-        """Build Hunk objects from SequenceMatcher grouped opcodes."""
-        hunks: list[Hunk] = []
-
-        for group in matcher.get_grouped_opcodes(n=self._context_lines):
-            first = group[0]
-            last = group[-1]
-            start_left = first[1] + 1
-            count_left = last[2] - first[1]
-            start_right = first[3] + 1
-            count_right = last[4] - first[3]
-
-            changes = self._build_changes(group, left_lines, right_lines)
-
-            hunks.append(
-                Hunk(
-                    start_left=start_left,
-                    count_left=count_left,
-                    start_right=start_right,
-                    count_right=count_right,
-                    changes=tuple(changes),
-                )
-            )
-
-        return tuple(hunks)
-
-    @staticmethod
-    def _build_changes(
-        group: list[tuple[str, int, int, int, int]],
-        left_lines: list[str],
-        right_lines: list[str],
-    ) -> list[TextChange]:
-        """Convert a group of opcodes into TextChange entries."""
-        changes: list[TextChange] = []
-
-        for tag, i1, i2, j1, j2 in group:
-            if tag == "equal":
-                for idx, line in enumerate(left_lines[i1:i2]):
-                    changes.append(
-                        TextChange(
-                            change_type=ChangeType.equal,
-                            content=line,
-                            line_left=i1 + idx + 1,
-                            line_right=j1 + idx + 1,
-                        )
-                    )
-            elif tag == "delete":
-                for idx, line in enumerate(left_lines[i1:i2]):
-                    changes.append(
-                        TextChange(
-                            change_type=ChangeType.delete,
-                            content=line,
-                            line_left=i1 + idx + 1,
-                            line_right=None,
-                        )
-                    )
-            elif tag == "insert":
-                for idx, line in enumerate(right_lines[j1:j2]):
-                    changes.append(
-                        TextChange(
-                            change_type=ChangeType.insert,
-                            content=line,
-                            line_left=None,
-                            line_right=j1 + idx + 1,
-                        )
-                    )
-            elif tag == "replace":
-                for idx, line in enumerate(left_lines[i1:i2]):
-                    changes.append(
-                        TextChange(
-                            change_type=ChangeType.delete,
-                            content=line,
-                            line_left=i1 + idx + 1,
-                            line_right=None,
-                        )
-                    )
-                for idx, line in enumerate(right_lines[j1:j2]):
-                    changes.append(
-                        TextChange(
-                            change_type=ChangeType.insert,
-                            content=line,
-                            line_left=None,
-                            line_right=j1 + idx + 1,
-                        )
-                    )
-
-        return changes

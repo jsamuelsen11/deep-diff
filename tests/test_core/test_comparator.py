@@ -9,6 +9,8 @@ import pytest
 from deep_diff.core.comparator import Comparator
 from deep_diff.core.filtering import FilterConfig
 from deep_diff.core.models import DiffDepth, DiffResult, DiffStats, FileStatus
+from deep_diff.core.plugins import PluginRegistry
+from deep_diff.plugins.json_plugin import JsonPlugin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -425,3 +427,116 @@ class TestComparatorTextDepthOnDirs:
         assert result.stats.modified == 1
         assert result.stats.removed == 1
         assert result.stats.added == 1
+
+
+class TestComparatorPluginIntegration:
+    """Verify plugin registry integration in the text pipeline."""
+
+    @staticmethod
+    def _make_registry() -> PluginRegistry:
+        registry = PluginRegistry()
+        registry.register(JsonPlugin())
+        return registry
+
+    def test_plugin_used_for_matching_extension_file_pair(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text('{"b": 2, "a": 1}')
+        right.write_text('{"a": 1, "b": 2}')
+
+        result = Comparator(DiffDepth.text, plugin_registry=self._make_registry()).compare(
+            left, right
+        )
+
+        assert result.comparisons[0].status == FileStatus.identical
+
+    def test_plugin_used_for_matching_extension_dirs(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "data.json").write_text('{"b": 2, "a": 1}')
+        (right / "data.json").write_text('{"a": 1, "b": 2}')
+
+        result = Comparator(DiffDepth.text, plugin_registry=self._make_registry()).compare(
+            left, right
+        )
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        assert by_path["data.json"].status == FileStatus.identical
+
+    def test_default_text_comparator_for_non_matching(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "readme.txt").write_text("hello\n")
+        (right / "readme.txt").write_text("world\n")
+
+        result = Comparator(DiffDepth.text, plugin_registry=self._make_registry()).compare(
+            left, right
+        )
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        assert by_path["readme.txt"].status == FileStatus.modified
+
+    def test_plugin_registry_none_uses_default(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text('{"b": 2, "a": 1}')
+        right.write_text('{"a": 1, "b": 2}')
+
+        result = Comparator(DiffDepth.text).compare(left, right)
+
+        assert result.comparisons[0].status == FileStatus.modified
+
+    def test_mixed_extensions_in_directory(self, tmp_path: Path) -> None:
+        left = tmp_path / "left"
+        right = tmp_path / "right"
+        left.mkdir()
+        right.mkdir()
+        (left / "config.json").write_text('{"z": 1, "a": 2}')
+        (right / "config.json").write_text('{"a": 2, "z": 1}')
+        (left / "notes.txt").write_text("old\n")
+        (right / "notes.txt").write_text("new\n")
+
+        result = Comparator(DiffDepth.text, plugin_registry=self._make_registry()).compare(
+            left, right
+        )
+
+        by_path = {c.relative_path: c for c in result.comparisons}
+        assert by_path["config.json"].status == FileStatus.identical
+        assert by_path["notes.txt"].status == FileStatus.modified
+
+    def test_init_stores_plugin_registry(self) -> None:
+        registry = self._make_registry()
+        c = Comparator(plugin_registry=registry)
+        assert c._plugin_registry is registry
+
+    def test_init_default_plugin_registry_is_none(self) -> None:
+        c = Comparator()
+        assert c._plugin_registry is None
+
+    def test_context_lines_propagated_to_plugin(self, tmp_path: Path) -> None:
+        """Plugin receives the CLI context_lines setting, not the default 3."""
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        # Create a JSON file with enough differing lines to test context_lines effect
+        left_obj = {f"key{i}": "old" if i == 10 else "same" for i in range(20)}
+        right_obj = {f"key{i}": "new" if i == 10 else "same" for i in range(20)}
+        import json
+
+        left.write_text(json.dumps(left_obj))
+        right.write_text(json.dumps(right_obj))
+
+        result_0 = Comparator(
+            DiffDepth.text, context_lines=0, plugin_registry=self._make_registry()
+        ).compare(left, right)
+        result_5 = Comparator(
+            DiffDepth.text, context_lines=5, plugin_registry=self._make_registry()
+        ).compare(left, right)
+
+        # With context_lines=0, hunks contain fewer equal lines around changes
+        hunk_0 = result_0.comparisons[0].hunks[0]
+        hunk_5 = result_5.comparisons[0].hunks[0]
+        assert len(hunk_5.changes) > len(hunk_0.changes)

@@ -10,6 +10,7 @@ import typer
 from deep_diff.core.comparator import Comparator
 from deep_diff.core.filtering import FilterConfig
 from deep_diff.core.models import DiffDepth, OutputMode
+from deep_diff.core.plugins import PluginRegistry
 from deep_diff.output.rich_output import RichRenderer
 
 if TYPE_CHECKING:
@@ -30,6 +31,28 @@ def version_callback(value: bool) -> None:
 
         typer.echo(f"deep-diff {__version__}")
         raise typer.Exit()
+
+
+def _list_plugins_callback(value: bool) -> None:
+    """List available plugins and exit."""
+    if not value:
+        return
+    registry = _build_default_registry()
+    if not registry.plugins:
+        typer.echo("No plugins available.")
+        raise typer.Exit()
+
+    for name, plugin in sorted(registry.plugins.items()):
+        exts = ", ".join(plugin.extensions)
+        typer.echo(f"  {name}: {exts}")
+    raise typer.Exit()
+
+
+def _build_default_registry() -> PluginRegistry:
+    """Build a registry from entry-point plugins (includes builtins)."""
+    registry = PluginRegistry()
+    registry.discover()
+    return registry
 
 
 def _parse_depth(value: str | None) -> DiffDepth | None:
@@ -163,6 +186,23 @@ def main(
         Path | None,
         typer.Option("--baseline", help="Compare against a previous snapshot."),
     ] = None,
+    plugin: Annotated[
+        list[str] | None,
+        typer.Option("--plugin", "-P", help="Enable only specific plugin(s) by name. Repeatable."),
+    ] = None,
+    no_plugins: Annotated[
+        bool,
+        typer.Option("--no-plugins", help="Disable all file-type plugins."),
+    ] = False,
+    list_plugins: Annotated[
+        bool | None,
+        typer.Option(
+            "--list-plugins",
+            callback=_list_plugins_callback,
+            is_eager=True,
+            help="List available plugins and exit.",
+        ),
+    ] = None,
     version: Annotated[
         bool | None,
         typer.Option(
@@ -209,6 +249,10 @@ def main(
                 typer.echo("Error: --watch cannot be combined with --baseline.", err=True)
                 raise typer.Exit(code=1)
 
+        if no_plugins and plugin:
+            typer.echo("Error: --no-plugins and --plugin are mutually exclusive.", err=True)
+            raise typer.Exit(code=1)
+
         filter_config = _build_filter_config(
             no_gitignore=no_gitignore,
             hidden=hidden,
@@ -216,12 +260,30 @@ def main(
             exclude=exclude,
         )
 
+        registry: PluginRegistry | None = None
+        if not no_plugins:
+            registry = _build_default_registry()
+            if plugin:
+                available = registry.names()
+                for p_name in plugin:
+                    if p_name not in available:
+                        typer.echo(
+                            f"Error: Unknown plugin '{p_name}'. Available: {', '.join(available)}",
+                            err=True,
+                        )
+                        raise typer.Exit(code=1)
+                filtered = PluginRegistry()
+                for p_name in plugin:
+                    filtered.register(registry.plugins[p_name])
+                registry = filtered
+
         comparator = Comparator(
             depth=parsed_depth,
             filter_config=filter_config,
             context_lines=context_lines,
             hash_algo=hash_algo,
             max_workers=workers,
+            plugin_registry=registry,
         )
 
         with GitResolver(cwd=Path.cwd()) as resolver:
