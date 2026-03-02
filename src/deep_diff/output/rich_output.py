@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -14,6 +14,8 @@ from rich.tree import Tree
 from deep_diff.core.models import ChangeType, DiffDepth, FileStatus
 
 if TYPE_CHECKING:
+    from rich.console import RenderableType
+
     from deep_diff.core.models import DiffResult, DiffStats, FileComparison, TextChange
 
 _STATUS_STYLES: dict[FileStatus, tuple[str, str]] = {
@@ -52,28 +54,38 @@ class RichRenderer:
         """
         self._console = console or Console()
 
-    def render(self, result: DiffResult) -> None:
-        """Render the diff result using depth-appropriate formatting."""
-        if result.depth == DiffDepth.structure:
-            tree = self._build_tree(result)
-            self._console.print(tree)
-        elif result.depth == DiffDepth.content:
-            self._render_content(result)
-        elif result.depth == DiffDepth.text:
-            self._render_text(result)
-        else:
-            msg = f"Unsupported depth for rendering: '{result.depth}'"
-            raise NotImplementedError(msg)
+    def build_renderable(self, result: DiffResult) -> RenderableType:
+        """Build a Rich renderable for the diff result.
 
-    def render_stats(self, stats: DiffStats) -> None:
-        """Render summary statistics."""
-        self._console.print(
+        Returns a renderable object suitable for ``Console.print()``
+        or ``Live.update()``.
+        """
+        if result.depth == DiffDepth.structure:
+            return self._build_tree(result)
+        if result.depth == DiffDepth.content:
+            return self._build_content_table(result)
+        if result.depth == DiffDepth.text:
+            return self._build_text_group(result)
+        msg = f"Unsupported depth for rendering: '{result.depth}'"
+        raise NotImplementedError(msg)
+
+    def build_stats_renderable(self, stats: DiffStats) -> Text:
+        """Build a Rich renderable for summary statistics."""
+        return Text.from_markup(
             f"[bold]{stats.total_files}[/bold] files compared: "
             f"[green]{stats.added} added[/green], "
             f"[red]{stats.removed} removed[/red], "
             f"[yellow]{stats.modified} modified[/yellow], "
             f"[dim]{stats.identical} identical[/dim]"
         )
+
+    def render(self, result: DiffResult) -> None:
+        """Render the diff result using depth-appropriate formatting."""
+        self._console.print(self.build_renderable(result))
+
+    def render_stats(self, stats: DiffStats) -> None:
+        """Render summary statistics."""
+        self._console.print(self.build_stats_renderable(stats))
 
     def _build_tree(self, result: DiffResult) -> Tree:
         """Build a nested Rich Tree from the diff result."""
@@ -124,8 +136,8 @@ class RichRenderer:
 
     # -- Content depth rendering ------------------------------------------
 
-    def _render_content(self, result: DiffResult) -> None:
-        """Render content-depth results as a summary table with hashes."""
+    def _build_content_table(self, result: DiffResult) -> Table:
+        """Build a summary table for content-depth results."""
         table = Table(
             title=f"{result.left_root.name} vs {result.right_root.name}",
             title_style="bold",
@@ -142,7 +154,7 @@ class RichRenderer:
             right_hash = self._truncate_hash(comp.content_hash_right)
             table.add_row(comp.relative_path, status_text, left_hash, right_hash)
 
-        self._console.print(table)
+        return table
 
     @staticmethod
     def _truncate_hash(hex_digest: str | None, *, length: int = 8) -> str:
@@ -153,29 +165,38 @@ class RichRenderer:
 
     # -- Text depth rendering ---------------------------------------------
 
-    def _render_text(self, result: DiffResult) -> None:
-        """Render text-depth results as syntax-highlighted unified diffs."""
-        header = Text(
-            f"{result.left_root.name} vs {result.right_root.name}",
-            style="bold",
+    def _build_text_group(self, result: DiffResult) -> Group:
+        """Build a group of renderables for text-depth results."""
+        renderables: list[RenderableType] = []
+
+        renderables.append(
+            Text(f"{result.left_root.name} vs {result.right_root.name}", style="bold")
         )
-        self._console.print(header)
-        self._console.print()
+        renderables.append(Text())
 
         for comp in result.comparisons:
             if comp.status == FileStatus.identical:
-                self._console.print(f"[dim]  {comp.relative_path} (identical)[/dim]")
+                renderables.append(
+                    Text.from_markup(f"[dim]  {comp.relative_path} (identical)[/dim]")
+                )
             elif comp.status == FileStatus.added:
-                self._console.print(f"[green]+ {comp.relative_path} (added)[/green]")
+                renderables.append(
+                    Text.from_markup(f"[green]+ {comp.relative_path} (added)[/green]")
+                )
             elif comp.status == FileStatus.removed:
-                self._console.print(f"[red]- {comp.relative_path} (removed)[/red]")
+                renderables.append(Text.from_markup(f"[red]- {comp.relative_path} (removed)[/red]"))
             elif comp.hunks:
-                self._render_diff_panel(comp)
+                renderables.append(self._build_diff_panel(comp))
             else:
-                self._console.print(f"[yellow]~ {comp.relative_path} (binary, modified)[/yellow]")
+                renderables.append(
+                    Text.from_markup(f"[yellow]~ {comp.relative_path} (binary, modified)[/yellow]")
+                )
 
-    def _render_diff_panel(self, comp: FileComparison) -> None:
-        """Render a modified file's hunks as a unified diff in a Panel."""
+        return Group(*renderables)
+
+    @staticmethod
+    def _build_diff_panel(comp: FileComparison) -> Panel:
+        """Build a unified diff panel for a modified file."""
         diff_text = Text()
 
         for hunk in comp.hunks:
@@ -185,21 +206,20 @@ class RichRenderer:
             diff_text.append(hunk_header + "\n", style="cyan")
 
             for change in hunk.changes:
-                line = self._format_change_line(change)
-                style = self._change_style(change.change_type)
+                line = RichRenderer._format_change_line(change)
+                style = RichRenderer._change_style(change.change_type)
                 diff_text.append(line, style=style)
 
         similarity_label = ""
         if comp.similarity is not None:
             similarity_label = f" ({comp.similarity:.0%} similar)"
 
-        panel = Panel(
+        return Panel(
             diff_text,
             title=f"[yellow]~ {comp.relative_path}{similarity_label}[/yellow]",
             border_style="yellow",
             expand=False,
         )
-        self._console.print(panel)
 
     @staticmethod
     def _format_change_line(change: TextChange) -> str:
