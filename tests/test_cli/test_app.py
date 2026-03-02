@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -412,3 +413,72 @@ class TestCliBaseline:
         result = runner.invoke(app, [str(left), str(right), "--baseline", str(snap)])
         assert result.exit_code == 0
         assert "Stats Delta" in result.output
+
+
+class TestCliWatchFlag:
+    """Verify --watch flag behavior."""
+
+    def test_watch_help_includes_flag(self) -> None:
+        result = runner.invoke(app, ["--help"])
+        assert "--watch" in result.output
+
+    def test_watch_rejected_with_git_ref(
+        self, git_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(git_repo)
+        result = runner.invoke(app, ["git:main", "git:feature", "--watch"])
+        assert result.exit_code == 1
+        assert "not supported with git:" in result.output
+
+    def test_watch_rejected_with_json_output(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--watch", "--output", "json"])
+        assert result.exit_code == 1
+        assert "--output rich" in result.output
+
+    def test_watch_rejected_with_html_output(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--watch", "--output", "html"])
+        assert result.exit_code == 1
+        assert "--output rich" in result.output
+
+    def test_watch_rejected_with_tui_output(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--watch", "--output", "tui"])
+        assert result.exit_code == 1
+        assert "--output rich" in result.output
+
+    def test_watch_rejected_with_save_snapshot(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        result = runner.invoke(
+            app, [str(left), str(right), "--watch", "--save-snapshot", str(snap)]
+        )
+        assert result.exit_code == 1
+        assert "--save-snapshot" in result.output
+
+    def test_watch_rejected_with_baseline(
+        self, sample_dirs: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        left, right = sample_dirs
+        snap = tmp_path / "snap.json"
+        snap.write_text("{}")
+        result = runner.invoke(app, [str(left), str(right), "--watch", "--baseline", str(snap)])
+        assert result.exit_code == 1
+        assert "--baseline" in result.output
+
+    def test_watch_accepted_with_plain_paths(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        with patch("deep_diff.core.watcher.run_watch_loop"):
+            result = runner.invoke(app, [str(left), str(right), "--watch"])
+        assert result.exit_code == 0
+
+    def test_watch_debounce_flag_accepted(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        with patch("deep_diff.core.watcher.run_watch_loop") as mock_run:
+            result = runner.invoke(app, [str(left), str(right), "--watch", "--debounce", "500"])
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["debounce"] == 500
