@@ -16,6 +16,7 @@ from deep_diff.core.models import (
     OutputMode,
     TextChange,
 )
+from deep_diff.core.plugins import FileTypePlugin, PluginRegistry
 from deep_diff.core.structure import StructureComparator
 from deep_diff.core.text import TextComparator
 
@@ -29,9 +30,11 @@ __all__ = [
     "FileComparison",
     "FileFilter",
     "FileStatus",
+    "FileTypePlugin",
     "FilterConfig",
     "Hunk",
     "OutputMode",
+    "PluginRegistry",
     "StructureComparator",
     "TextChange",
     "TextComparator",

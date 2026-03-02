@@ -17,6 +17,10 @@ dependencies = [
 [project.scripts]
 deep-diff = "deep_diff.cli.app:app"
 
+[project.entry-points."deep_diff.plugins"]
+json = "deep_diff.plugins.json_plugin:JsonPlugin"
+yaml = "deep_diff.plugins.yaml_plugin:YamlPlugin"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
