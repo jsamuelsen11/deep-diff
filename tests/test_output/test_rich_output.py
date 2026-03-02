@@ -724,6 +724,70 @@ class TestRichRendererHelpers:
         assert RichRenderer._change_style(ChangeType.equal) == "dim"
 
 
+class TestRichRendererBuildRenderable:
+    """Verify build_renderable returns appropriate renderables."""
+
+    def test_structure_returns_tree(self) -> None:
+        from rich.tree import Tree
+
+        r = RichRenderer()
+        result = _make_result((), depth=DiffDepth.structure)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Tree)
+
+    def test_content_returns_table(self) -> None:
+        from rich.table import Table
+
+        r = RichRenderer()
+        comp = FileComparison(
+            relative_path="file.txt",
+            status=FileStatus.identical,
+            left_path=Path("/tmp/left/file.txt"),
+            right_path=Path("/tmp/right/file.txt"),
+            content_hash_left="aabbccdd",
+            content_hash_right="aabbccdd",
+            similarity=1.0,
+        )
+        result = _make_result((comp,), depth=DiffDepth.content)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Table)
+
+    def test_text_returns_group(self) -> None:
+        from rich.console import Group
+
+        r = RichRenderer()
+        result = _make_result((), depth=DiffDepth.text)
+        renderable = r.build_renderable(result)
+        assert isinstance(renderable, Group)
+
+    def test_build_stats_renderable_returns_text(self) -> None:
+        from rich.text import Text
+
+        r = RichRenderer()
+        stats = DiffStats(total_files=5, identical=2, modified=1, added=1, removed=1)
+        renderable = r.build_stats_renderable(stats)
+        assert isinstance(renderable, Text)
+        plain = renderable.plain
+        assert "5" in plain
+        assert "added" in plain
+
+    def test_render_uses_build_renderable(self) -> None:
+        console = Console(file=StringIO(), force_terminal=True, width=120)
+        r = RichRenderer(console=console)
+        comp = FileComparison(
+            relative_path="test.txt",
+            status=FileStatus.added,
+            left_path=None,
+            right_path=Path("/tmp/right/test.txt"),
+        )
+        result = _make_result((comp,))
+        r.render(result)
+        file = r._console.file
+        assert isinstance(file, StringIO)
+        output = file.getvalue()
+        assert "test.txt" in output
+
+
 class TestRichRendererProtocol:
     """Verify RichRenderer satisfies the Renderer protocol."""
 
