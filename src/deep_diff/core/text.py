@@ -53,6 +53,7 @@ class TextComparator:
         right: Path,
         *,
         relative_path: str = "",
+        context_lines: int | None = None,
     ) -> FileComparison:
         """Compare two files and produce line-level diff hunks.
 
@@ -61,12 +62,16 @@ class TextComparator:
             right: Path to the right file.
             relative_path: Relative path label for the result.
                 Defaults to ``left.name`` when empty.
+            context_lines: Override the instance's context lines setting.
+                When ``None`` (the default), uses the value from ``__init__``.
 
         Returns:
             A FileComparison with status, hunks, and similarity.
         """
         if not relative_path:
             relative_path = left.name
+
+        effective_context = context_lines if context_lines is not None else self._context_lines
 
         left_bytes = left.read_bytes()
         right_bytes = right.read_bytes()
@@ -86,6 +91,7 @@ class TextComparator:
             relative_path=relative_path,
             left_path=left,
             right_path=right,
+            context_lines=effective_context,
         )
 
     @staticmethod
@@ -127,8 +133,10 @@ class TextComparator:
         relative_path: str,
         left_path: Path,
         right_path: Path,
+        context_lines: int | None = None,
     ) -> FileComparison:
         """Compare two text files using difflib.SequenceMatcher."""
+        effective_context = context_lines if context_lines is not None else self._context_lines
         left_text = left_bytes.decode(self._encoding, errors=self._errors)
         right_text = right_bytes.decode(self._encoding, errors=self._errors)
 
@@ -136,7 +144,7 @@ class TextComparator:
         right_lines = right_text.splitlines(keepends=True)
 
         similarity, hunks = build_hunks_from_lines(
-            left_lines, right_lines, context_lines=self._context_lines
+            left_lines, right_lines, context_lines=effective_context
         )
 
         status = FileStatus.identical if similarity == 1.0 else FileStatus.modified

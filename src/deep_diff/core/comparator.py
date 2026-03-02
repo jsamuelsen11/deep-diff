@@ -211,7 +211,7 @@ class Comparator:
 
         if left.is_file() and right.is_file():
             comparator = self._get_comparator_for_path(left.name, text_comp)
-            return (comparator.compare(left, right),)
+            return (comparator.compare(left, right, context_lines=self._context_lines),)
 
         structure_comparisons = StructureComparator(
             self._filter_config,
@@ -219,7 +219,9 @@ class Comparator:
 
         def compare_fn(left_file: Path, right_file: Path, rel: str) -> FileComparison:
             comparator = self._get_comparator_for_path(rel, text_comp)
-            return comparator.compare(left_file, right_file, relative_path=rel)
+            return comparator.compare(
+                left_file, right_file, relative_path=rel, context_lines=self._context_lines
+            )
 
         return self._run_parallel(structure_comparisons, compare_fn)
 

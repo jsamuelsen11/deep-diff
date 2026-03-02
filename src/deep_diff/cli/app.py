@@ -49,13 +49,8 @@ def _list_plugins_callback(value: bool) -> None:
 
 
 def _build_default_registry() -> PluginRegistry:
-    """Build a registry with all builtins and discovered entry-point plugins."""
-    from deep_diff.plugins.json_plugin import JsonPlugin
-    from deep_diff.plugins.yaml_plugin import YamlPlugin
-
+    """Build a registry from entry-point plugins (includes builtins)."""
     registry = PluginRegistry()
-    registry.register(JsonPlugin())
-    registry.register(YamlPlugin())
     registry.discover()
     return registry
 
@@ -253,6 +248,10 @@ def main(
             if baseline is not None:
                 typer.echo("Error: --watch cannot be combined with --baseline.", err=True)
                 raise typer.Exit(code=1)
+
+        if no_plugins and plugin:
+            typer.echo("Error: --no-plugins and --plugin are mutually exclusive.", err=True)
+            raise typer.Exit(code=1)
 
         filter_config = _build_filter_config(
             no_gitignore=no_gitignore,

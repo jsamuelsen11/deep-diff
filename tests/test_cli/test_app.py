@@ -541,6 +541,16 @@ class TestCliPluginFlags:
         assert result.exit_code == 0
         assert "identical" in result.output.lower()
 
+    def test_no_plugins_and_plugin_mutually_exclusive(self, tmp_path: Path) -> None:
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        left.write_text("{}")
+        right.write_text("{}")
+
+        result = runner.invoke(app, [str(left), str(right), "--no-plugins", "--plugin", "json"])
+        assert result.exit_code == 1
+        assert "mutually exclusive" in result.output
+
     def test_help_includes_plugin_flags(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert "--plugin" in result.output

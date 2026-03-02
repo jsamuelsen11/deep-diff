@@ -42,6 +42,7 @@ class FileTypePlugin(Protocol):
         right: Path,
         *,
         relative_path: str = "",
+        context_lines: int = 3,
     ) -> FileComparison:
         """Compare two files using type-specific logic.
 
@@ -49,6 +50,7 @@ class FileTypePlugin(Protocol):
             left: Path to the left file.
             right: Path to the right file.
             relative_path: Display path label. Defaults to left.name when empty.
+            context_lines: Number of context lines around each change.
 
         Returns:
             A FileComparison with status, hunks, and similarity.

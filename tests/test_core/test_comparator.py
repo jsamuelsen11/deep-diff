@@ -516,3 +516,27 @@ class TestComparatorPluginIntegration:
     def test_init_default_plugin_registry_is_none(self) -> None:
         c = Comparator()
         assert c._plugin_registry is None
+
+    def test_context_lines_propagated_to_plugin(self, tmp_path: Path) -> None:
+        """Plugin receives the CLI context_lines setting, not the default 3."""
+        left = tmp_path / "left.json"
+        right = tmp_path / "right.json"
+        # Create a JSON file with enough differing lines to test context_lines effect
+        left_obj = {f"key{i}": "old" if i == 10 else "same" for i in range(20)}
+        right_obj = {f"key{i}": "new" if i == 10 else "same" for i in range(20)}
+        import json
+
+        left.write_text(json.dumps(left_obj))
+        right.write_text(json.dumps(right_obj))
+
+        result_0 = Comparator(
+            DiffDepth.text, context_lines=0, plugin_registry=self._make_registry()
+        ).compare(left, right)
+        result_5 = Comparator(
+            DiffDepth.text, context_lines=5, plugin_registry=self._make_registry()
+        ).compare(left, right)
+
+        # With context_lines=0, hunks contain fewer equal lines around changes
+        hunk_0 = result_0.comparisons[0].hunks[0]
+        hunk_5 = result_5.comparisons[0].hunks[0]
+        assert len(hunk_5.changes) > len(hunk_0.changes)

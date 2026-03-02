@@ -36,6 +36,7 @@ class JsonPlugin:
         right: Path,
         *,
         relative_path: str = "",
+        context_lines: int = 3,
     ) -> FileComparison:
         """Compare two JSON files by normalized structure.
 
@@ -43,6 +44,7 @@ class JsonPlugin:
             left: Path to the left JSON file.
             right: Path to the right JSON file.
             relative_path: Display path label. Defaults to left.name when empty.
+            context_lines: Number of context lines around each change.
 
         Returns:
             A FileComparison with structural diff hunks.
@@ -57,7 +59,9 @@ class JsonPlugin:
             left_obj = json.loads(left_text)
             right_obj = json.loads(right_text)
         except json.JSONDecodeError:
-            return self._text_fallback(left, right, relative_path=relative_path)
+            return self._text_fallback(
+                left, right, relative_path=relative_path, context_lines=context_lines
+            )
 
         if left_obj == right_obj:
             return FileComparison(
@@ -73,7 +77,9 @@ class JsonPlugin:
 
         left_lines = left_normalized.splitlines(keepends=True)
         right_lines = right_normalized.splitlines(keepends=True)
-        similarity, hunks = build_hunks_from_lines(left_lines, right_lines)
+        similarity, hunks = build_hunks_from_lines(
+            left_lines, right_lines, context_lines=context_lines
+        )
 
         return FileComparison(
             relative_path=relative_path,
@@ -90,8 +96,11 @@ class JsonPlugin:
         right: Path,
         *,
         relative_path: str,
+        context_lines: int,
     ) -> FileComparison:
         """Fall back to raw text diff when JSON parsing fails."""
         from deep_diff.core.text import TextComparator
 
-        return TextComparator().compare(left, right, relative_path=relative_path)
+        return TextComparator(context_lines=context_lines).compare(
+            left, right, relative_path=relative_path
+        )
