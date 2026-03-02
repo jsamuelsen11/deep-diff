@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from rich.console import Console, RenderableType
 
     from deep_diff.core.comparator import Comparator
-    from deep_diff.output.rich_output import RichRenderer
+    from deep_diff.output.base import WatchRenderer
 
 
 def run_watch_loop(
@@ -21,7 +21,7 @@ def run_watch_loop(
     right: Path,
     *,
     comparator: Comparator,
-    renderer: RichRenderer,
+    renderer: WatchRenderer,
     console: Console,
     stat: bool = False,
     debounce: int = 1600,
@@ -37,7 +37,7 @@ def run_watch_loop(
         left: Left path to watch and compare.
         right: Right path to watch and compare.
         comparator: Pre-configured Comparator instance.
-        renderer: RichRenderer whose ``build_renderable`` is called each cycle.
+        renderer: Any renderer implementing the WatchRenderer protocol.
         console: Rich Console used for status messages and the Live context.
         stat: If True, render stats only (mirrors --stat flag).
         debounce: Debounce interval in milliseconds passed to watchfiles.

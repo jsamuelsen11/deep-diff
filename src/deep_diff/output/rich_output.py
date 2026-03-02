@@ -194,8 +194,8 @@ class RichRenderer:
 
         return Group(*renderables)
 
-    @staticmethod
-    def _build_diff_panel(comp: FileComparison) -> Panel:
+    @classmethod
+    def _build_diff_panel(cls, comp: FileComparison) -> Panel:
         """Build a unified diff panel for a modified file."""
         diff_text = Text()
 
@@ -206,8 +206,8 @@ class RichRenderer:
             diff_text.append(hunk_header + "\n", style="cyan")
 
             for change in hunk.changes:
-                line = RichRenderer._format_change_line(change)
-                style = RichRenderer._change_style(change.change_type)
+                line = cls._format_change_line(change)
+                style = cls._change_style(change.change_type)
                 diff_text.append(line, style=style)
 
         similarity_label = ""

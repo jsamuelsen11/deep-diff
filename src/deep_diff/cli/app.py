@@ -152,9 +152,9 @@ def main(
         typer.Option("--watch", "-W", help="Watch paths for changes and re-diff automatically."),
     ] = False,
     debounce: Annotated[
-        int,
+        int | None,
         typer.Option("--debounce", help="Watch debounce interval in milliseconds.", min=0),
-    ] = 1600,
+    ] = None,
     save_snapshot: Annotated[
         Path | None,
         typer.Option("--save-snapshot", help="Save the diff result as a JSON snapshot."),
@@ -184,6 +184,12 @@ def main(
     try:
         parsed_depth = _parse_depth(depth)
         output_mode = _parse_output_mode(output)
+
+        if not watch and debounce is not None:
+            typer.echo("Error: --debounce requires --watch.", err=True)
+            raise typer.Exit(code=1)
+
+        debounce_ms = debounce if debounce is not None else 1600
 
         if watch:
             if is_git_ref(left) or is_git_ref(right):
@@ -235,7 +241,7 @@ def main(
                     renderer=rich_renderer,
                     console=rich_console,
                     stat=stat,
-                    debounce=debounce,
+                    debounce=debounce_ms,
                 )
                 return
 

@@ -482,3 +482,9 @@ class TestCliWatchFlag:
         assert result.exit_code == 0
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["debounce"] == 500
+
+    def test_debounce_without_watch_rejected(self, sample_dirs: tuple[Path, Path]) -> None:
+        left, right = sample_dirs
+        result = runner.invoke(app, [str(left), str(right), "--debounce", "500"])
+        assert result.exit_code == 1
+        assert "--debounce requires --watch" in result.output
