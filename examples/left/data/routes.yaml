@@ -1,0 +1,22 @@
+routes:
+  - path: /
+    method: GET
+    handler: home
+    auth: false
+
+  - path: /users
+    method: GET
+    handler: list_users
+    auth: true
+
+  - path: /users/:id
+    method: GET
+    handler: get_user
+    auth: true
+
+settings:
+  rate_limit: 100
+  timeout: 30
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://app.example.com"

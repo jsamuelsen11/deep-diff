@@ -1,0 +1,20 @@
+{
+  "app_name": "demo-app",
+  "version": "1.0.0",
+  "debug": false,
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "demo_db",
+    "pool_size": 5
+  },
+  "logging": {
+    "level": "info",
+    "format": "%(asctime)s %(levelname)s %(message)s"
+  },
+  "features": {
+    "dark_mode": false,
+    "notifications": true,
+    "analytics": false
+  }
+}

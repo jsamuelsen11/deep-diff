@@ -1,0 +1,22 @@
+settings:
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://app.example.com"
+  rate_limit: 100
+  timeout: 30
+
+routes:
+  - auth: false
+    handler: home
+    method: GET
+    path: /
+
+  - auth: true
+    handler: list_users
+    method: GET
+    path: /users
+
+  - auth: true
+    handler: get_user
+    method: GET
+    path: /users/:id
