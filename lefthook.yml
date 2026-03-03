@@ -3,7 +3,7 @@ pre-commit:
   commands:
     ruff-format:
       glob: "*.py"
-      run: uv run ruff format --check {staged_files}
+      run: uv run ruff format {staged_files}
 
     ruff-lint:
       glob: "*.py"
@@ -13,6 +13,15 @@ pre-commit:
     mypy:
       glob: "*.py"
       run: uv run mypy src/
+
+    mdformat:
+      glob: "*.md"
+      run: uv run mdformat {staged_files}
+      stage_fixed: true
+
+    pymarkdown-lint:
+      glob: "*.md"
+      run: uv run pymarkdown -c .pymarkdown.yml scan {staged_files}
 
 pre-push:
   parallel: true
