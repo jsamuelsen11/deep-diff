@@ -23,30 +23,7 @@ deep-diff src/ other-src/ --baseline baseline.json
 Instead of rendering the normal diff output, this compares the **current** diff result
 against the saved snapshot and shows what changed between the two runs:
 
-```text
-Baseline: src vs other-src  (content)
-Current:  src vs other-src  (content)
-
-            Stats Delta
-┏━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━┓
-┃ Metric     ┃ Baseline ┃ Current┃ Delta┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━┩
-│ total_files│       10 │     12 │   +2 │
-│ identical  │        8 │      9 │   +1 │
-│ modified   │        1 │      1 │    0 │
-│ added      │        1 │      2 │   +1 │
-│ removed    │        0 │      0 │    0 │
-└────────────┴──────────┴────────┴──────┘
-
-1 file(s) changed status:
-  utils.py: modified -> identical
-
-2 new file(s) tracked:
-  + helpers.py
-  + extras.py
-```
-
-<!-- screenshot: capture a baseline comparison showing a stats delta table -->
+![Baseline comparison](images/baseline.png)
 
 The baseline report shows:
 

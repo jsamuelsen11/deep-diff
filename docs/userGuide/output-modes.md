@@ -29,7 +29,7 @@ deep-diff src/ other-src/ -o tui
 Opens a full-screen interactive terminal UI built with [Textual](https://textual.textualize.io/).
 Navigate the file tree on the left, view diffs on the right.
 
-<!-- screenshot: capture the TUI with a file selected showing a diff panel -->
+![Interactive TUI](images/tui.png)
 
 ### TUI Keybindings
 
@@ -92,7 +92,7 @@ deep-diff src/ other-src/ -d text -o html > report.html
 Produces a standalone HTML document with GitHub-inspired styling.
 Includes all CSS inline — no external dependencies. Open it in any browser.
 
-<!-- screenshot: capture the HTML output rendered in a browser -->
+![HTML report in browser](images/html-report.png)
 
 Redirect stdout to a file since the HTML is written to stdout:
 

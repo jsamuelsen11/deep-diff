@@ -59,7 +59,7 @@ You can always override auto-detection with `--depth` (see [Depth Levels](depth-
 deep-diff --help
 ```
 
-<!-- screenshot: capture `deep-diff --help` output -->
+![deep-diff help output](images/help-output.png)
 
 ______________________________________________________________________
 

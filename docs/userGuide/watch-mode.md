@@ -13,16 +13,7 @@ deep-diff src/ other-src/ -W
 
 The initial diff renders immediately. When any file in either path changes, the output refreshes in place.
 
-```text
-Watching src and other-src for changes... (CTRL+C to quit)
-
-src vs other-src
-├── + new_file.py
-├──   shared.py
-└── ~ config.py
-```
-
-<!-- screenshot: capture watch mode with the "Watching..." header visible -->
+![Watch mode](images/watch-mode.png)
 
 Press **CTRL+C** to stop watching.
 
