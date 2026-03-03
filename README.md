@@ -2,7 +2,8 @@
 
 Compare files and directories with clarity.
 
-A Python CLI/TUI tool that performs diff operations at multiple depth levels -- from simple "what files exist" to full text diffs with syntax highlighting.
+A Python CLI/TUI tool that performs diff operations at multiple depth levels --
+from simple "what files exist" to full text diffs with syntax highlighting.
 
 ## Features
 
@@ -71,6 +72,19 @@ deep-diff src/ other-src/ --hash md5           # use MD5 instead of SHA-256
 | Context lines | 3 | `--context N` |
 | Hash algorithm | sha256 | `--hash ALGO` |
 
+## Documentation
+
+For the full user guide, see **[docs/userGuide](docs/userGuide/README.md)**. Highlights:
+
+- [Depth Levels](docs/userGuide/depth-levels.md) -- structure vs content vs text
+- [Output Modes](docs/userGuide/output-modes.md) -- Rich, TUI, JSON, HTML
+- [Filtering](docs/userGuide/filtering.md) -- gitignore, hidden files, include/exclude globs
+- [Git Refs](docs/userGuide/git-refs.md) -- compare branches, tags, and commits
+- [Watch Mode](docs/userGuide/watch-mode.md) -- live re-diffing on file changes
+- [Snapshots](docs/userGuide/snapshots.md) -- save results, compare against baselines
+- [Plugins](docs/userGuide/plugins.md) -- JSON/YAML structural diffing
+- [Quick Reference](docs/userGuide/quick-reference.md) -- all flags + copy-paste recipes
+
 ## Development
 
 ```bash
@@ -100,7 +114,7 @@ lefthook install
 
 deep-diff uses a layered comparison pipeline:
 
-```
+```text
 CLI (Typer) -> Comparator
                   |
                   +-> FileFilter (gitignore + globs + hidden files)
