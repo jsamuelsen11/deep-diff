@@ -10,5 +10,4 @@ comment:
   if: is_pull_request
 
 push:
-  enable: true
-  if: is_default_branch
+  enable: false
