@@ -32,6 +32,9 @@ Thumbs.db
 # ruff
 .ruff_cache/
 
+# Beads local state
+.beads/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
