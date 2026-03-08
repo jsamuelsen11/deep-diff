@@ -1,9 +1,7 @@
 """CLI entry point for deep-diff."""
 
-from __future__ import annotations
-
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 import typer
 
@@ -11,10 +9,8 @@ from deep_diff.core.comparator import Comparator
 from deep_diff.core.filtering import FilterConfig
 from deep_diff.core.models import DiffDepth, OutputMode
 from deep_diff.core.plugins import PluginRegistry
+from deep_diff.output.base import Renderer
 from deep_diff.output.rich_output import RichRenderer
-
-if TYPE_CHECKING:
-    from deep_diff.output.base import Renderer
 
 app = typer.Typer(
     name="deep-diff",
