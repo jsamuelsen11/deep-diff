@@ -1,6 +1,13 @@
-# deep-diff
+# Compare files and directories with clarity
 
-Compare files and directories with clarity.
+![deep-diff](docs/images/deepDiffLogo.png)
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/downloads/)
+[![Coverage 80%+](https://img.shields.io/badge/coverage-80%25+-brightgreen)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-d4aa00)](https://docs.astral.sh/ruff/)
+[![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue)](https://mypy-lang.org/)
+[![Built with: uv](https://img.shields.io/badge/built%20with-uv-purple)](https://docs.astral.sh/uv/)
 
 A Python CLI/TUI tool that performs diff operations at multiple depth levels --
 from simple "what files exist" to full text diffs with syntax highlighting.
@@ -114,16 +121,40 @@ lefthook install
 
 deep-diff uses a layered comparison pipeline:
 
-```text
-CLI (Typer) -> Comparator
-                  |
-                  +-> FileFilter (gitignore + globs + hidden files)
-                  +-> StructureComparator (file existence)
-                  +-> ContentComparator (hash-based identity)
-                  +-> TextComparator (line-by-line diffs)
-                  |
-                  v
-              DiffResult -> Renderer (rich | tui | json | html)
+```mermaid
+graph TD
+    CLI["🖥️ CLI (Typer)"]:::entry --> Filter
+
+    subgraph Comparator["⚙️ Comparator Pipeline"]
+        Filter["FileFilter\n(gitignore + globs + hidden files)"]:::filter
+        Structure["StructureComparator\n(file existence)"]:::compare
+        Content["ContentComparator\n(hash-based identity)"]:::compare
+        Text["TextComparator\n(line-by-line diffs)"]:::compare
+        Filter --> Structure --> Content --> Text
+    end
+
+    Text --> Result["📦 DiffResult"]:::result
+
+    subgraph Renderer["🎨 Renderers"]
+        Rich["Rich"]:::render
+        TUI["TUI"]:::render
+        JSON["JSON"]:::render
+        HTML["HTML"]:::render
+    end
+
+    Result --> Rich
+    Result --> TUI
+    Result --> JSON
+    Result --> HTML
+
+    classDef entry fill:#6366f1,stroke:#4f46e5,color:#fff,font-weight:bold
+    classDef filter fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef compare fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef result fill:#10b981,stroke:#059669,color:#fff,font-weight:bold
+    classDef render fill:#8b5cf6,stroke:#7c3aed,color:#fff
+
+    style Comparator fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e40af
+    style Renderer fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px,color:#5b21b6
 ```
 
 Each stage produces immutable results. Higher stages enrich lower-stage results without mutation.
