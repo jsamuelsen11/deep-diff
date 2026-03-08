@@ -1,7 +1,7 @@
 {
   "database": "dolt",
-  "jsonl_export": "issues.jsonl",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "beads_deep-diff"
+  "dolt_database": "beads_deep-diff",
+  "project_id": "ed635c8d-9601-4778-8a09-da8e34a0d775"
 }
