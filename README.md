@@ -3,7 +3,7 @@
 ![deep-diff](docs/images/deepDiffLogo.png)
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/downloads/)
-[![Coverage 80%+](https://img.shields.io/badge/coverage-80%25+-brightgreen)](pyproject.toml)
+[![Coverage](docs/images/coverage.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-d4aa00)](https://docs.astral.sh/ruff/)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue)](https://mypy-lang.org/)

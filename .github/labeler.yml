@@ -1,0 +1,35 @@
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "*.md"]
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ["tests/**"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", "lefthook.yml"]
+
+core:
+  - changed-files:
+      - any-glob-to-any-file: ["src/deep_diff/core/**"]
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: ["src/deep_diff/cli/**"]
+
+tui:
+  - changed-files:
+      - any-glob-to-any-file: ["src/deep_diff/tui/**"]
+
+output:
+  - changed-files:
+      - any-glob-to-any-file: ["src/deep_diff/output/**"]
+
+plugins:
+  - changed-files:
+      - any-glob-to-any-file: ["src/deep_diff/plugins/**"]
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ["pyproject.toml", "uv.lock"]

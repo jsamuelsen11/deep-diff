@@ -1,0 +1,14 @@
+coverage:
+  paths:
+    - coverage.json
+  badge:
+    path: docs/images/coverage.svg
+  acceptable: 80%
+
+comment:
+  enable: true
+  if: is_pull_request
+
+push:
+  enable: true
+  if: is_default_branch
