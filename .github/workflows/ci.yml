@@ -47,3 +47,21 @@ jobs:
           name: coverage
 
       - uses: k1LoW/octocov-action@v1
+
+      - name: Push coverage badge
+        if: github.ref == 'refs/heads/main' && success()
+        run: |
+          cp docs/images/coverage.svg /tmp/coverage.svg
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash --include-untracked
+          if git fetch origin badges 2>/dev/null; then
+            git checkout badges
+          else
+            git switch --orphan badges
+          fi
+          mkdir -p docs/images
+          cp /tmp/coverage.svg docs/images/coverage.svg
+          git add docs/images/coverage.svg
+          git diff --cached --quiet || git commit -m "chore: update coverage badge [skip ci]"
+          git push origin badges
