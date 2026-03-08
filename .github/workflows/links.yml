@@ -1,0 +1,25 @@
+name: Links
+
+on:
+  push:
+    branches: [main]
+    paths: ["**.md", "docs/**"]
+  pull_request:
+    paths: ["**.md", "docs/**"]
+  schedule:
+    - cron: "0 9 * * 1"
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --exclude 'img.shields.io'
+            '**/*.md'
+          fail: true
