@@ -1,6 +1,6 @@
 coverage:
   paths:
-    - coverage.json
+    - coverage.xml
   badge:
     path: docs/images/coverage.svg
   acceptable: 80%
